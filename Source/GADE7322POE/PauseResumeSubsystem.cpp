@@ -147,7 +147,7 @@ uint8 UPauseResumeSubsystem::GetGameStateByte(AActor* GameManager) const
 		return 0;
 	}
 
-	// E_GameState: Playing=0, Paused=1, GameOver=2 (from earlier asset dump).
+	
 	if (FByteProperty* ByteProp = FindFProperty<FByteProperty>(GameManager->GetClass(), FName(TEXT("CurrentGameState"))))
 	{
 		return ByteProp->GetPropertyValue_InContainer(GameManager);

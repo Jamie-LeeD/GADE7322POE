@@ -8,13 +8,7 @@ class UStaticMeshComponent;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnShieldGuardChanged, bool, bIsActive);
 
-/**
- * Royal Guardian behaviour layered on top of BP_RoyalArcher (the project's defender base).
- * Targeting, cooldowns, health, death and slot freeing stay in the existing systems; this component:
- *  - tells the combat director to strike in melee instead of firing a projectile,
- *  - runs Shield Guard (temporary incoming-damage reduction applied inside the existing damage path),
- *  - gives the Guardian its heavier look (body tint, sword, shield).
- */
+
 UCLASS(ClassGroup = (Combat), meta = (BlueprintSpawnableComponent))
 class GADE7322POE_API URoyalGuardianComponent : public UActorComponent
 {
@@ -23,7 +17,7 @@ class GADE7322POE_API URoyalGuardianComponent : public UActorComponent
 public:
 	URoyalGuardianComponent();
 
-	/** Incoming damage multiplier for the owner (0.5 while Shield Guard is active, otherwise 1). */
+	
 	UFUNCTION(BlueprintPure, Category = "Guardian|Shield Guard")
 	float GetIncomingDamageMultiplier() const;
 
@@ -36,32 +30,32 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Guardian|Shield Guard")
 	void EndShieldGuard();
 
-	/** Called by the combat director when a melee strike lands (drives the sword swing). */
+	
 	void NotifyMeleeStrike(AActor* Target);
 
 	UPROPERTY(BlueprintAssignable, Category = "Guardian|Shield Guard")
 	FOnShieldGuardChanged OnShieldGuardChanged;
 
-	/** When true the combat director applies AttackDamage directly to targets in AttackRange (no projectile). */
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Guardian|Attack")
 	bool bUseMeleeAttack = true;
 
-	/** Written into the inherited BP_HealthComponent at BeginPlay (0 = keep the archer value). */
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Guardian|Stats", meta = (ClampMin = "0.0"))
 	float MaxHealthOverride = 400.f;
 
-	/** 0.5 = takes 50% less damage while Shield Guard is up. */
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Guardian|Shield Guard", meta = (ClampMin = "0.0", ClampMax = "0.95"))
 	float ShieldDamageReduction = 0.5f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Guardian|Shield Guard", meta = (ClampMin = "0.1"))
 	float ShieldDuration = 3.f;
 
-	/** Time after Shield Guard ends before it can be raised again. */
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Guardian|Shield Guard", meta = (ClampMin = "0.0"))
 	float ShieldCooldown = 12.f;
 
-	/** Shield Guard only raises when an enemy is this close, so it isn't wasted while idle. */
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Guardian|Shield Guard", meta = (ClampMin = "0.0"))
 	float ShieldTriggerRange = 450.f;
 
@@ -80,7 +74,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Guardian|Visual")
 	FLinearColor SwordColor = FLinearColor(0.8f, 0.8f, 0.85f);
 
-	/** Body mesh scale relative to the archer (bulkier silhouette). */
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Guardian|Visual")
 	FVector BodyScale = FVector(1.45f, 1.45f, 1.15f);
 

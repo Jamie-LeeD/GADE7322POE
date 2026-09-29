@@ -25,14 +25,6 @@ struct FStatusSavedMeshMaterials
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnEnemySlowChanged, bool, bIsSlowed);
 
-/**
- * Temporary status effects for path-following enemies (BP_GoblinEnemy and children).
- * Never owns movement: it only scales the enemy's existing MoveSpeed variable, which
- * the Blueprint MoveAlongPath already reads every tick.
- *
- * MoveSpeed = BaseMoveSpeed * SlowMultiplier * SpeedBoostMultiplier * SupportSpeedMultiplier
- * Damage multipliers are read by the combat director; AttackDamage is left untouched.
- */
 UCLASS(ClassGroup = (Combat), meta = (BlueprintSpawnableComponent))
 class GADE7322POE_API UEnemyStatusComponent : public UActorComponent
 {
@@ -43,7 +35,7 @@ public:
 
 	static UEnemyStatusComponent* FindOrAddTo(AActor* Enemy);
 
-	/** Slows the owner by SlowPercent (0.4 = 40% slower) for Duration seconds. Re-hits refresh, never stack. */
+	
 	UFUNCTION(BlueprintCallable, Category = "Status|Slow")
 	void ApplySlow(float SlowPercent, float Duration);
 
@@ -53,18 +45,15 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Status|Slow")
 	bool IsSlowed() const { return SlowTimeRemaining > 0.f; }
 
-	/** Extra speed multiplier used by abilities such as Berserker rage (1 = none). */
+	
 	UFUNCTION(BlueprintCallable, Category = "Status|Speed")
 	void SetSpeedBoost(float Multiplier);
 
-	/** Extra attack damage multiplier used by abilities such as Berserker rage (1 = none). */
+	
 	UFUNCTION(BlueprintCallable, Category = "Status|Damage")
 	void SetDamageBoost(float Multiplier);
 
-	/**
-	 * Temporary ally buff (Goblin Shaman). One buff slot: re-applying refreshes the duration and keeps
-	 * the strongest bonuses, so several Shamans never stack.
-	 */
+
 	UFUNCTION(BlueprintCallable, Category = "Status|Support")
 	void ApplySupportBuff(float SpeedBonus, float DamageBonus, float Duration);
 
@@ -74,11 +63,11 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Status|Support")
 	bool HasSupportBuff() const { return SupportTimeRemaining > 0.f; }
 
-	/** Multiplier the combat director applies to the owner's AttackDamage (AttackDamage itself is never changed). */
+	
 	UFUNCTION(BlueprintPure, Category = "Status|Damage")
 	float GetDamageMultiplier() const { return DamageBoostMultiplier * SupportDamageMultiplier; }
 
-	/** Permanent body colour for unit variants (e.g. Berserker). Buff/slow tints are blended on top. */
+	
 	UFUNCTION(BlueprintCallable, Category = "Status|Visual")
 	void SetBodyTint(bool bEnable, FLinearColor Color);
 
@@ -97,14 +86,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Status|Visual", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float SupportBuffTintStrength = 0.45f;
 
-	/** Blueprint float/double variable on the owner that drives path movement. */
+	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Status")
 	FName SpeedPropertyName = TEXT("MoveSpeed");
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Status|Visual")
 	FLinearColor SlowedTint = FLinearColor(0.35f, 0.8f, 1.f);
 
-	/** How strongly the slowed tint replaces the body colour when the enemy has one. */
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Status|Visual", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float SlowedTintStrength = 0.6f;
 

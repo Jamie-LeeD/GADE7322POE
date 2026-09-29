@@ -4,10 +4,7 @@
 #include "Subsystems/WorldSubsystem.h"
 #include "CombatDirectorSubsystem.generated.h"
 
-/**
- * Drives tower / archer / goblin combat from C++ so gameplay does not depend on
- * broken Blueprint CombatTick timers (Set Timer by Function Name + Custom Event).
- */
+
 UCLASS()
 class GADE7322POE_API UCombatDirectorSubsystem : public UTickableWorldSubsystem
 {
@@ -53,7 +50,6 @@ protected:
 		FVector Location = FVector::ZeroVector;
 		float Age = 0.f;
 		bool bDamageApplied = false;
-		/** On-hit slow captured at fire time (0 = none), so it still lands if the shooter dies mid-flight. */
 		float SlowPercent = 0.f;
 		float SlowDuration = 0.f;
 	};

@@ -118,7 +118,7 @@ void ADefenderPlacementManagerBase::PollSetup()
 
 	if (!DefenderBarWidget)
 	{
-		// Prefer a bar already placed in the HUD (e.g. inside WBP_GameHUD); give the HUD a moment to be created.
+		// Prefer a bar already placed in the HUD 
 		TArray<UUserWidget*> ExistingBars;
 		UWidgetBlueprintLibrary::GetAllWidgetsOfClass(this, ExistingBars, UDefenderBarWidget::StaticClass(), false);
 		if (ExistingBars.Num() > 0)
@@ -487,7 +487,7 @@ bool ADefenderPlacementManagerBase::TryPlaceDefender(AActor* ClickedSlot, TSubcl
 		? SelectedDefenderName.ToString()
 		: DefenderClass->GetName();
 
-	// 1) Location: must be a registered, unoccupied pad (pads only exist on defender tiles, never on the path).
+	//Location: must be a registered, unoccupied pad (pads only exist on defender tiles, never on the path).
 	UClass* SlotClass = GetSlotClass();
 	if (!IsValid(ClickedSlot) || (SlotClass && !ClickedSlot->IsA(SlotClass)))
 	{
@@ -500,14 +500,14 @@ bool ADefenderPlacementManagerBase::TryPlaceDefender(AActor* ClickedSlot, TSubcl
 		return false;
 	}
 
-	// 2) Gold.
+	//Gold.
 	if (!CanAffordDefender(Cost))
 	{
 		PostMessage(FString::Printf(TEXT("Not enough gold for %s (need %d, have %d)"), *DefenderName, Cost, GetPlayerGold()), true);
 		return false;
 	}
 
-	// 3) Spawn.
+	//Spawn.
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	AActor* Defender = World->SpawnActor<AActor>(DefenderClass, ClickedSlot->GetActorLocation(), FRotator::ZeroRotator, SpawnParams);
@@ -517,7 +517,7 @@ bool ADefenderPlacementManagerBase::TryPlaceDefender(AActor* ClickedSlot, TSubcl
 		return false;
 	}
 
-	// 4) Spend gold only after the spawn succeeded; roll the spawn back if the spend is refused.
+	//Spend gold only after the spawn succeeded; roll the spawn back if the spend is refused.
 	if (Cost > 0)
 	{
 		bool bCalled = false;
@@ -539,7 +539,7 @@ bool ADefenderPlacementManagerBase::TryPlaceDefender(AActor* ClickedSlot, TSubcl
 		}
 	}
 
-	// 5) Occupy the slot through the existing slot actor + manager Slots record.
+	//Occupy the slot through the existing slot actor + manager Slots record.
 	if (UFunction* SetOccupiedFn = ClickedSlot->FindFunction(FName(TEXT("SetOccupied"))))
 	{
 		TArray<uint8> Parms;
@@ -563,7 +563,7 @@ bool ADefenderPlacementManagerBase::TryPlaceDefender(AActor* ClickedSlot, TSubcl
 	UE_LOG(LogDefenderPlacement, Warning, TEXT("Placed %s on %s for %d gold (gold now %d)"),
 		*GetNameSafe(Defender), *GetNameSafe(ClickedSlot), Cost, GetPlayerGold());
 
-	// 6) Leave placement mode.
+	//Leave placement mode.
 	if (bIsPlacingDefender)
 	{
 		ClearSelection();

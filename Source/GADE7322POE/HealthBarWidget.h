@@ -8,10 +8,7 @@ class UProgressBar;
 class UTextBlock;
 class USizeBox;
 
-/**
- * Reusable world-space health bar. Driven by UHealthBarComponent from any actor
- * that has a health component with CurrentHealth / MaxHealth.
- */
+
 UCLASS()
 class GADE7322POE_API UHealthBarWidget : public UUserWidget
 {

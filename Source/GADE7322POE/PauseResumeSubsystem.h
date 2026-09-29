@@ -4,10 +4,7 @@
 #include "Subsystems/WorldSubsystem.h"
 #include "PauseResumeSubsystem.generated.h"
 
-/**
- * Fixes stuck pause: Blueprint Resume sometimes restores Playing state / hides the
- * pause menu but leaves UGameplayStatics::SetGamePaused(true) latched.
- */
+
 UCLASS()
 class GADE7322POE_API UPauseResumeSubsystem : public UTickableWorldSubsystem
 {

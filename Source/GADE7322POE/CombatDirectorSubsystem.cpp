@@ -102,7 +102,7 @@ namespace CombatDirectorPrivate
 				FindFProperty<FFloatProperty>(Comp->GetClass(), FName(TEXT("CurrentHealth"))) != nullptr);
 		};
 
-		// 1) Prefer real health component class / exact name (avoid HealthText TextRender matches).
+		//Prefer real health component class / exact name (avoid HealthText TextRender matches).
 		for (UActorComponent* Comp : Components)
 		{
 			if (!Comp)
@@ -120,7 +120,7 @@ namespace CombatDirectorPrivate
 			}
 		}
 
-		// 2) Any component that actually stores CurrentHealth.
+		//Any component that actually stores CurrentHealth.
 		for (UActorComponent* Comp : Components)
 		{
 			if (HasCurrentHealth(Comp))
@@ -129,7 +129,7 @@ namespace CombatDirectorPrivate
 			}
 		}
 
-		// 3) Object property named Health on the actor.
+		//Object property named Health on the actor.
 		for (TFieldIterator<FObjectProperty> It(Actor->GetClass()); It; ++It)
 		{
 			FObjectProperty* Prop = *It;
@@ -567,7 +567,7 @@ void UCombatDirectorSubsystem::AwardGoldForKill(AActor* Victim)
 	float NewGold = CombatDirectorPrivate::GetNumeric(GM, FName(TEXT("Gold")), OldGold);
 	if (NewGold <= OldGold)
 	{
-		// AddGold didn't stick â€” apply directly.
+		// AddGold didn't stick
 		NewGold = OldGold + Reward;
 		CombatDirectorPrivate::SetNumeric(GM, FName(TEXT("Gold")), NewGold);
 	}

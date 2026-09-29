@@ -32,7 +32,7 @@ void URoyalGuardianComponent::BeginPlay()
 	UnitReflection::ApplyMaxHealthOverride(Owner, MaxHealthOverride);
 	EnemyClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Game/Enemies/BP_GoblinEnemy.BP_GoblinEnemy_C"));
 
-	// Body first (before the cosmetic attachments exist, so only the original meshes are tinted/scaled).
+	
 	TArray<UStaticMeshComponent*> Meshes;
 	UnitReflection::GetBodyMeshes(Owner, Meshes);
 	for (UStaticMeshComponent* Mesh : Meshes)
@@ -47,7 +47,7 @@ void URoyalGuardianComponent::BeginPlay()
 	UnitReflection::GetBodyBounds(Owner, Center, Extent);
 	const float Radius = FMath::Max(Extent.X, Extent.Y);
 
-	// Shield: a flattened cylinder facing forward (+X). Sword: a thin blade on the right side.
+	
 	ShieldRestLocation = Center + FVector(Radius + 6.f, 0.f, 0.f);
 	ShieldRestScale = FVector(0.95f, 0.95f, 0.12f);
 	ShieldMesh = UnitReflection::AddVisualShape(Owner, TEXT("Cylinder"), ShieldColor, ShieldRestLocation, FRotator(90.f, 0.f, 0.f), ShieldRestScale);

@@ -72,7 +72,7 @@ void UEnemyStatusComponent::ApplySpeed()
 	}
 	else if (LastWrittenSpeed >= 0.f && !FMath::IsNearlyEqual(Current, LastWrittenSpeed, 0.01f))
 	{
-		// The Blueprint changed MoveSpeed itself (e.g. stop at tower); treat that as the new normal speed.
+		// The Blueprint changed MoveSpeed itself 
 		BaseMoveSpeed = Current;
 	}
 
@@ -216,7 +216,7 @@ void UEnemyStatusComponent::RefreshVisual()
 		return;
 	}
 
-	// Layers: body colour -> Shaman buff -> slow (slow is the most important to read, so it goes last).
+	
 	bool bHasColor = bHasBodyTint;
 	FLinearColor Color = BodyTint;
 	auto Layer = [&](const FLinearColor& Tint, float Strength)

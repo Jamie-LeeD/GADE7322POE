@@ -17,11 +17,10 @@ struct FDefenderBarEntry
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Defender")
 	FText DefenderName;
 
-	/** 0 = use the defender class PlacementCost. */
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Defender", meta = (ClampMin = "0"))
 	int32 DefenderPrice = 0;
 
-	/** Leave empty for a defender that isn't implemented yet (shown as Unavailable). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Defender")
 	TSubclassOf<AActor> DefenderClass;
 
@@ -29,12 +28,7 @@ struct FDefenderBarEntry
 	TObjectPtr<UTexture2D> DefenderIcon = nullptr;
 };
 
-/**
- * Native parent of WBP_DefenderBarBase.
- * Fills DefenderBox with one WBP_DefenderSelectBase per Defenders entry, unless select widgets were
- * placed in DefenderBox by hand in the designer (those are used as-is). HeadingText shows placement
- * instructions and feedback such as "Not enough gold".
- */
+
 UCLASS()
 class GADE7322POE_API UDefenderBarWidget : public UUserWidget
 {

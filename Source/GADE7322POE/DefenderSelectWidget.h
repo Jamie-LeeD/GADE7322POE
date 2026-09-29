@@ -12,11 +12,7 @@ class UDefenderSelectWidget;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnDefenderSelectClicked, UDefenderSelectWidget*, SelectWidget);
 
-/**
- * Native parent of WBP_DefenderSelectBase: one clickable defender card.
- * It only tells the placement manager "the player selected this defender";
- * placement itself stays in BP_DefenderPlacementManager.
- */
+
 UCLASS()
 class GADE7322POE_API UDefenderSelectWidget : public UUserWidget
 {
@@ -29,11 +25,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Defender")
 	void RefreshDisplay();
 
-	/** Selects this defender (or cancels if it is already the selected one). */
+	
 	UFUNCTION(BlueprintCallable, Category = "Defender")
 	void SelectThisDefender();
 
-	/** DefenderPrice, or the class PlacementCost when DefenderPrice is 0. */
+	
 	UFUNCTION(BlueprintPure, Category = "Defender")
 	int32 GetEffectivePrice() const;
 
@@ -49,14 +45,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Defender", meta = (ExposeOnSpawn = "true"))
 	FText DefenderName;
 
-	/** Gold cost charged on placement. 0 = use the defender class PlacementCost. */
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Defender", meta = (ExposeOnSpawn = "true", ClampMin = "0"))
 	int32 DefenderPrice = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Defender", meta = (ExposeOnSpawn = "true"))
 	TSubclassOf<AActor> DefenderClass;
 
-	/** Portrait shown in the DefenderImage widget. Leave empty to show the placeholder colour. */
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Defender", meta = (ExposeOnSpawn = "true"))
 	TObjectPtr<UTexture2D> DefenderIcon;
 

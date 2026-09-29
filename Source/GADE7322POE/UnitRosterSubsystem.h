@@ -4,13 +4,7 @@
 #include "Subsystems/WorldSubsystem.h"
 #include "UnitRosterSubsystem.generated.h"
 
-/**
- * Plugs the Part 2 unit variants into the existing Blueprint systems without editing them:
- *  - BP_EnemySpawner: after each spawn, its GoblinClass is re-rolled between Goblin, Goblin Berserker
- *    and Goblin Shaman (stand-in until the procedural wave system picks classes itself).
- *  - Guarantees the variant C++ components exist on spawned variants.
- * Defender selection/placement lives in ADefenderPlacementManagerBase (BP_DefenderPlacementManager).
- */
+
 UCLASS()
 class GADE7322POE_API UUnitRosterSubsystem : public UTickableWorldSubsystem
 {

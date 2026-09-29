@@ -13,14 +13,13 @@ DEFINE_LOG_CATEGORY_STATIC(LogUnitRoster, Log, All);
 
 namespace UnitRosterPrivate
 {
-	/** Chance that the next spawner enemy is a Berserker once they are unlocked. */
+	
 	static constexpr float BerserkerSpawnChance = 0.3f;
 
-	/** Seconds of play before Berserkers can appear, so the opening wave stays goblin-only. */
+	
 	static constexpr float BerserkerUnlockTime = 20.f;
 
-	/** Chance that the next spawner enemy is a Shaman once they are unlocked (rolled before Berserkers). */
-	static constexpr float ShamanSpawnChance = 0.15f;
+	
 
 	static constexpr float ShamanUnlockTime = 35.f;
 

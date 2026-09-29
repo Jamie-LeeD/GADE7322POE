@@ -7,12 +7,7 @@
 class UHealthBarWidget;
 class UActorComponent;
 
-/**
- * World-space health bar that reads CurrentHealth/MaxHealth from the owner's
- * health component (works with BP_HealthComponent).
- *
- * Add this component in Blueprint, or let HealthBarSubsystem auto-attach it.
- */
+
 UCLASS(ClassGroup = (UI), meta = (BlueprintSpawnableComponent))
 class GADE7322POE_API UHealthBarComponent : public UWidgetComponent
 {
@@ -24,7 +19,7 @@ public:
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
-	/** Manual bind if auto-find fails. */
+	
 	UFUNCTION(BlueprintCallable, Category = "Health")
 	void SetHealthSource(UActorComponent* InHealthComponent);
 

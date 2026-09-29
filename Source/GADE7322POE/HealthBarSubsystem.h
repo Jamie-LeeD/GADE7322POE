@@ -6,10 +6,7 @@
 
 class UHealthBarComponent;
 
-/**
- * Auto-attaches a reusable UHealthBarComponent to towers, archers, and goblins
- * so Blueprint actors with BP_HealthComponent get world-space bars without setup.
- */
+
 UCLASS()
 class GADE7322POE_API UHealthBarSubsystem : public UTickableWorldSubsystem
 {
