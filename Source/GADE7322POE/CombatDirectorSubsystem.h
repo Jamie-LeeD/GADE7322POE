@@ -53,7 +53,12 @@ protected:
 		FVector Location = FVector::ZeroVector;
 		float Age = 0.f;
 		bool bDamageApplied = false;
+		/** On-hit slow captured at fire time (0 = none), so it still lands if the shooter dies mid-flight. */
+		float SlowPercent = 0.f;
+		float SlowDuration = 0.f;
 	};
+
+	void ApplyShotHit(FActiveShot& Shot, AActor* Target, AActor* Causer);
 
 	UPROPERTY()
 	TObjectPtr<UClass> TowerClass;

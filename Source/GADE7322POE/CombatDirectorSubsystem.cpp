@@ -4,8 +4,10 @@
 #include "Components/PrimitiveComponent.h"
 #include "Components/SceneComponent.h"
 #include "DrawDebugHelpers.h"
+#include "EnemyStatusComponent.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "FrostAttackComponent.h"
 #include "GameFramework/Actor.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UnrealType.h"
@@ -593,6 +595,8 @@ void UCombatDirectorSubsystem::FireProjectile(AActor* Attacker, AActor* Target, 
 	SpawnParams.Instigator = Cast<APawn>(Attacker);
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
+	const UFrostAttackComponent* Frost = Attacker->FindComponentByClass<UFrostAttackComponent>();
+
 	AActor* Projectile = World->SpawnActor<AActor>(ProjectileClass, Muzzle, Rotation, SpawnParams);
 	if (IsValid(Projectile))
 	{
@@ -605,10 +609,18 @@ void UCombatDirectorSubsystem::FireProjectile(AActor* Attacker, AActor* Target, 
 			RootPrim->SetVisibility(true, true);
 			RootPrim->SetHiddenInGame(false, true);
 		}
+		if (Frost)
+		{
+			Frost->TintProjectile(Projectile);
+		}
 	}
 	else
 	{
 		ApplyDamage(Target, Damage, Attacker);
+		if (Frost && IsActorAlive(Target))
+		{
+			Frost->ApplyFrostOnHit(Target);
+		}
 		UE_LOG(LogCombatDirector, Warning, TEXT("Projectile spawn failed; applied direct damage to %s"), *GetNameSafe(Target));
 		return;
 	}
@@ -623,6 +635,11 @@ void UCombatDirectorSubsystem::FireProjectile(AActor* Attacker, AActor* Target, 
 	Shot.Location = Muzzle;
 	Shot.Age = 0.f;
 	Shot.bDamageApplied = false;
+	if (Frost)
+	{
+		Shot.SlowPercent = Frost->SlowPercent;
+		Shot.SlowDuration = Frost->SlowDuration;
+	}
 	ActiveShots.Add(Shot);
 
 	DrawDebugLine(World, Muzzle, Target->GetActorLocation(), FColor::Yellow, false, 0.2f, 0, 4.f);
@@ -738,6 +755,25 @@ void UCombatDirectorSubsystem::TickGoblinMelee(float Now)
 	}
 }
 
+void UCombatDirectorSubsystem::ApplyShotHit(FActiveShot& Shot, AActor* Target, AActor* Causer)
+{
+	if (Shot.bDamageApplied)
+	{
+		return;
+	}
+	Shot.bDamageApplied = true;
+
+	ApplyDamage(Target, Shot.Damage, Causer);
+
+	if (Shot.SlowPercent > 0.f && Shot.SlowDuration > 0.f && IsActorAlive(Target))
+	{
+		if (UEnemyStatusComponent* Status = UEnemyStatusComponent::FindOrAddTo(Target))
+		{
+			Status->ApplySlow(Shot.SlowPercent, Shot.SlowDuration);
+		}
+	}
+}
+
 void UCombatDirectorSubsystem::TickProjectiles(float DeltaTime)
 {
 	UWorld* World = GetWorld();
@@ -770,11 +806,7 @@ void UCombatDirectorSubsystem::TickProjectiles(float DeltaTime)
 		FVector Delta = Goal - Shot.Location;
 		if (Delta.ContainsNaN() || Shot.Location.ContainsNaN())
 		{
-			if (!Shot.bDamageApplied)
-			{
-				ApplyDamage(Target, Shot.Damage, Causer);
-				Shot.bDamageApplied = true;
-			}
+			ApplyShotHit(Shot, Target, Causer);
 			if (IsValid(Visual))
 			{
 				Visual->Destroy();
@@ -787,11 +819,7 @@ void UCombatDirectorSubsystem::TickProjectiles(float DeltaTime)
 		const bool bShouldHit = Dist <= Shot.HitRadius || Shot.Age >= 2.5f;
 		if (bShouldHit)
 		{
-			if (!Shot.bDamageApplied)
-			{
-				ApplyDamage(Target, Shot.Damage, Causer);
-				Shot.bDamageApplied = true;
-			}
+			ApplyShotHit(Shot, Target, Causer);
 			if (IsValid(Visual))
 			{
 				Visual->Destroy();
