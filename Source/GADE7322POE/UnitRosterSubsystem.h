@@ -6,7 +6,8 @@
 
 /**
  * Plugs the Part 2 unit variants into the existing Blueprint systems without editing them:
- *  - BP_EnemySpawner: after each spawn, its GoblinClass is re-rolled between Goblin and Goblin Berserker.
+ *  - BP_EnemySpawner: after each spawn, its GoblinClass is re-rolled between Goblin, Goblin Berserker
+ *    and Goblin Shaman (stand-in until the procedural wave system picks classes itself).
  *  - Guarantees the variant C++ components exist on spawned variants.
  * Defender selection/placement lives in ADefenderPlacementManagerBase (BP_DefenderPlacementManager).
  */
@@ -40,6 +41,12 @@ protected:
 
 	UPROPERTY()
 	TObjectPtr<UClass> FrostArcherClass;
+
+	UPROPERTY()
+	TObjectPtr<UClass> ShamanClass;
+
+	UPROPERTY()
+	TObjectPtr<UClass> GuardianClass;
 
 	UPROPERTY()
 	TObjectPtr<UClass> SpawnerClass;

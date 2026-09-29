@@ -7,11 +7,6 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogBerserker, Log, All);
 
-namespace BerserkerPrivate
-{
-	static const FName AttackDamageName(TEXT("AttackDamage"));
-}
-
 UBerserkerRageComponent::UBerserkerRageComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
@@ -82,12 +77,6 @@ void UBerserkerRageComponent::StartRage()
 	RageTimeRemaining = RageDuration;
 	RageAge = 0.f;
 
-	BaseAttackDamage = UnitReflection::GetNumeric(Owner, BerserkerPrivate::AttackDamageName, -1.f);
-	if (BaseAttackDamage > 0.f)
-	{
-		UnitReflection::SetNumeric(Owner, BerserkerPrivate::AttackDamageName, BaseAttackDamage * RageDamageMultiplier);
-	}
-
 	if (!Status)
 	{
 		Status = UEnemyStatusComponent::FindOrAddTo(Owner);
@@ -95,6 +84,7 @@ void UBerserkerRageComponent::StartRage()
 	if (Status)
 	{
 		Status->SetSpeedBoost(RageSpeedMultiplier);
+		Status->SetDamageBoost(RageDamageMultiplier);
 		Status->SetBodyTint(true, RageColor);
 	}
 
@@ -115,13 +105,10 @@ void UBerserkerRageComponent::EndRage()
 	CooldownRemaining = RageCooldown;
 
 	AActor* Owner = GetOwner();
-	if (BaseAttackDamage > 0.f && IsValid(Owner))
-	{
-		UnitReflection::SetNumeric(Owner, BerserkerPrivate::AttackDamageName, BaseAttackDamage);
-	}
 	if (Status)
 	{
 		Status->SetSpeedBoost(1.f);
+		Status->SetDamageBoost(1.f);
 		Status->SetBodyTint(true, BodyColor);
 	}
 	ApplyMeshScale(0.f);

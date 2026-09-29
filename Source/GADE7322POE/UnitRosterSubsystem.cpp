@@ -5,6 +5,8 @@
 #include "EngineUtils.h"
 #include "FrostAttackComponent.h"
 #include "GameFramework/Actor.h"
+#include "GoblinShamanComponent.h"
+#include "RoyalGuardianComponent.h"
 #include "UObject/UnrealType.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUnitRoster, Log, All);
@@ -16,6 +18,11 @@ namespace UnitRosterPrivate
 
 	/** Seconds of play before Berserkers can appear, so the opening wave stays goblin-only. */
 	static constexpr float BerserkerUnlockTime = 20.f;
+
+	/** Chance that the next spawner enemy is a Shaman once they are unlocked (rolled before Berserkers). */
+	static constexpr float ShamanSpawnChance = 0.15f;
+
+	static constexpr float ShamanUnlockTime = 35.f;
 
 	template <typename TComponent>
 	static void EnsureComponent(AActor* Actor)
@@ -62,14 +69,17 @@ void UUnitRosterSubsystem::ResolveClasses()
 	GoblinClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Game/Enemies/BP_GoblinEnemy.BP_GoblinEnemy_C"));
 	BerserkerClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Game/Enemies/BP_GoblinBerserker.BP_GoblinBerserker_C"));
 	FrostArcherClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Game/Defenders/BP_FrostArcher.BP_FrostArcher_C"));
+	ShamanClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Game/Enemies/BP_GoblinShaman.BP_GoblinShaman_C"));
+	GuardianClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Game/Defenders/BP_RoyalGuardian.BP_RoyalGuardian_C"));
 	SpawnerClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Game/Enemies/BP_EnemySpawner.BP_EnemySpawner_C"));
 	GameManagerClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Game/Core/BP_GameManager.BP_GameManager_C"));
 
 	bClassesResolved = GoblinClass && SpawnerClass && GameManagerClass;
 	if (bClassesResolved)
 	{
-		UE_LOG(LogUnitRoster, Warning, TEXT("UnitRoster active (Berserker: %s, Frost Archer: %s)"),
-			BerserkerClass ? TEXT("found") : TEXT("MISSING"), FrostArcherClass ? TEXT("found") : TEXT("MISSING"));
+		UE_LOG(LogUnitRoster, Warning, TEXT("UnitRoster active (Berserker: %s, Shaman: %s, Frost Archer: %s, Royal Guardian: %s)"),
+			BerserkerClass ? TEXT("found") : TEXT("MISSING"), ShamanClass ? TEXT("found") : TEXT("MISSING"),
+			FrostArcherClass ? TEXT("found") : TEXT("MISSING"), GuardianClass ? TEXT("found") : TEXT("MISSING"));
 	}
 }
 
@@ -121,7 +131,7 @@ bool UUnitRosterSubsystem::IsGamePlaying(AActor* GameManager) const
 void UUnitRosterSubsystem::TickSpawnMix(float Now)
 {
 	UWorld* World = GetWorld();
-	if (!World || !BerserkerClass)
+	if (!World || (!BerserkerClass && !ShamanClass))
 	{
 		return;
 	}
@@ -134,7 +144,7 @@ void UUnitRosterSubsystem::TickSpawnMix(float Now)
 	}
 
 	UClass* Current = Cast<UClass>(GoblinClassProp->GetObjectPropertyValue_InContainer(Spawner));
-	if (Current != GoblinClass && Current != BerserkerClass)
+	if (Current != GoblinClass && Current != BerserkerClass && Current != ShamanClass)
 	{
 		return;
 	}
@@ -161,9 +171,21 @@ void UUnitRosterSubsystem::TickSpawnMix(float Now)
 	}
 	bSpawnRollPending = false;
 
-	const bool bUnlocked = PlayStartTime >= 0.f && (Now - PlayStartTime) >= UnitRosterPrivate::BerserkerUnlockTime;
-	const bool bBerserker = bUnlocked && Random.FRand() < UnitRosterPrivate::BerserkerSpawnChance;
-	GoblinClassProp->SetObjectPropertyValue_InContainer(Spawner, bBerserker ? BerserkerClass.Get() : GoblinClass.Get());
+	const float PlayTime = PlayStartTime >= 0.f ? Now - PlayStartTime : 0.f;
+	const bool bShamanUnlocked = ShamanClass && PlayTime >= UnitRosterPrivate::ShamanUnlockTime;
+	const bool bBerserkerUnlocked = BerserkerClass && PlayTime >= UnitRosterPrivate::BerserkerUnlockTime;
+
+	UClass* Next = GoblinClass;
+	const float Roll = Random.FRand();
+	if (bShamanUnlocked && Roll < UnitRosterPrivate::ShamanSpawnChance)
+	{
+		Next = ShamanClass;
+	}
+	else if (bBerserkerUnlocked && Roll < UnitRosterPrivate::ShamanSpawnChance + UnitRosterPrivate::BerserkerSpawnChance)
+	{
+		Next = BerserkerClass;
+	}
+	GoblinClassProp->SetObjectPropertyValue_InContainer(Spawner, Next);
 }
 
 void UUnitRosterSubsystem::EnsureVariantComponents()
@@ -185,6 +207,20 @@ void UUnitRosterSubsystem::EnsureVariantComponents()
 		for (TActorIterator<AActor> It(World, FrostArcherClass); It; ++It)
 		{
 			UnitRosterPrivate::EnsureComponent<UFrostAttackComponent>(*It);
+		}
+	}
+	if (ShamanClass)
+	{
+		for (TActorIterator<AActor> It(World, ShamanClass); It; ++It)
+		{
+			UnitRosterPrivate::EnsureComponent<UGoblinShamanComponent>(*It);
+		}
+	}
+	if (GuardianClass)
+	{
+		for (TActorIterator<AActor> It(World, GuardianClass); It; ++It)
+		{
+			UnitRosterPrivate::EnsureComponent<URoyalGuardianComponent>(*It);
 		}
 	}
 }

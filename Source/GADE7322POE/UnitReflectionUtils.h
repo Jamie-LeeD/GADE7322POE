@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
 #include "GameFramework/Actor.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
@@ -116,6 +117,71 @@ namespace UnitReflection
 		if (Actor)
 		{
 			Actor->GetComponents(OutMeshes);
+		}
+	}
+
+	/** Actor-local centre and half-size of the owner's body meshes (used to place attachments). */
+	inline void GetBodyBounds(const AActor* Actor, FVector& OutLocalCenter, FVector& OutExtent)
+	{
+		OutLocalCenter = FVector(0.f, 0.f, 50.f);
+		OutExtent = FVector(50.f);
+		TArray<UStaticMeshComponent*> Meshes;
+		GetBodyMeshes(Actor, Meshes);
+		FBox Box(ForceInit);
+		for (const UStaticMeshComponent* Mesh : Meshes)
+		{
+			Box += Mesh->Bounds.GetBox();
+		}
+		if (Actor && Box.IsValid)
+		{
+			OutLocalCenter = Actor->GetActorTransform().InverseTransformPosition(Box.GetCenter());
+			OutExtent = Box.GetExtent();
+		}
+	}
+
+	/**
+	 * Adds a purely cosmetic engine basic shape (Cube/Cylinder/Sphere/Cone) to an actor.
+	 * No collision, so it never blocks cursor traces or placement clicks.
+	 */
+	inline UStaticMeshComponent* AddVisualShape(AActor* Actor, const TCHAR* ShapeName, const FLinearColor& Color,
+		const FVector& RelativeLocation, const FRotator& RelativeRotation, const FVector& RelativeScale)
+	{
+		if (!Actor || !Actor->GetRootComponent())
+		{
+			return nullptr;
+		}
+		UStaticMesh* Mesh = LoadObject<UStaticMesh>(nullptr, *FString::Printf(TEXT("/Engine/BasicShapes/%s.%s"), ShapeName, ShapeName));
+		if (!Mesh)
+		{
+			return nullptr;
+		}
+		UStaticMeshComponent* Comp = NewObject<UStaticMeshComponent>(Actor, MakeUniqueObjectName(Actor, UStaticMeshComponent::StaticClass(), FName(ShapeName)));
+		Comp->SetStaticMesh(Mesh);
+		Comp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Comp->SetGenerateOverlapEvents(false);
+		Comp->SetCastShadow(false);
+		Comp->SetupAttachment(Actor->GetRootComponent());
+		Comp->SetRelativeLocationAndRotation(RelativeLocation, RelativeRotation);
+		Comp->SetRelativeScale3D(RelativeScale);
+		Actor->AddInstanceComponent(Comp);
+		Comp->RegisterComponent();
+		if (UMaterialInterface* Base = GetTintBaseMaterial())
+		{
+			UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(Base, Comp);
+			MID->SetVectorParameterValue(TEXT("Color"), Color);
+			Comp->SetMaterial(0, MID);
+		}
+		return Comp;
+	}
+
+	inline void SetShapeColor(UStaticMeshComponent* Comp, const FLinearColor& Color)
+	{
+		if (Comp)
+		{
+			if (UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(Comp->GetMaterial(0)))
+			{
+				MID->SetVectorParameterValue(TEXT("Color"), Color);
+			}
 		}
 	}
 }

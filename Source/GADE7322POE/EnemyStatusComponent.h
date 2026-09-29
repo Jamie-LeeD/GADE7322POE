@@ -30,7 +30,8 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnEnemySlowChanged, bool, bIsSlowed
  * Never owns movement: it only scales the enemy's existing MoveSpeed variable, which
  * the Blueprint MoveAlongPath already reads every tick.
  *
- * MoveSpeed = BaseMoveSpeed * SlowMultiplier * SpeedBoostMultiplier
+ * MoveSpeed = BaseMoveSpeed * SlowMultiplier * SpeedBoostMultiplier * SupportSpeedMultiplier
+ * Damage multipliers are read by the combat director; AttackDamage is left untouched.
  */
 UCLASS(ClassGroup = (Combat), meta = (BlueprintSpawnableComponent))
 class GADE7322POE_API UEnemyStatusComponent : public UActorComponent
@@ -56,7 +57,28 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Status|Speed")
 	void SetSpeedBoost(float Multiplier);
 
-	/** Permanent body colour for unit variants (e.g. Berserker). Slowed tint is blended on top. */
+	/** Extra attack damage multiplier used by abilities such as Berserker rage (1 = none). */
+	UFUNCTION(BlueprintCallable, Category = "Status|Damage")
+	void SetDamageBoost(float Multiplier);
+
+	/**
+	 * Temporary ally buff (Goblin Shaman). One buff slot: re-applying refreshes the duration and keeps
+	 * the strongest bonuses, so several Shamans never stack.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Status|Support")
+	void ApplySupportBuff(float SpeedBonus, float DamageBonus, float Duration);
+
+	UFUNCTION(BlueprintCallable, Category = "Status|Support")
+	void ClearSupportBuff();
+
+	UFUNCTION(BlueprintPure, Category = "Status|Support")
+	bool HasSupportBuff() const { return SupportTimeRemaining > 0.f; }
+
+	/** Multiplier the combat director applies to the owner's AttackDamage (AttackDamage itself is never changed). */
+	UFUNCTION(BlueprintPure, Category = "Status|Damage")
+	float GetDamageMultiplier() const { return DamageBoostMultiplier * SupportDamageMultiplier; }
+
+	/** Permanent body colour for unit variants (e.g. Berserker). Buff/slow tints are blended on top. */
 	UFUNCTION(BlueprintCallable, Category = "Status|Visual")
 	void SetBodyTint(bool bEnable, FLinearColor Color);
 
@@ -65,6 +87,15 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Status|Slow")
 	FOnEnemySlowChanged OnSlowChanged;
+
+	UPROPERTY(BlueprintAssignable, Category = "Status|Support")
+	FOnEnemySlowChanged OnSupportBuffChanged;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Status|Visual")
+	FLinearColor SupportBuffTint = FLinearColor(0.3f, 1.f, 0.35f);
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Status|Visual", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float SupportBuffTintStrength = 0.45f;
 
 	/** Blueprint float/double variable on the owner that drives path movement. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Status")
@@ -88,6 +119,18 @@ public:
 
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Status|Debug")
 	float SpeedBoostMultiplier = 1.f;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Status|Debug")
+	float DamageBoostMultiplier = 1.f;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Status|Debug")
+	float SupportSpeedMultiplier = 1.f;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Status|Debug")
+	float SupportDamageMultiplier = 1.f;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Status|Debug")
+	float SupportTimeRemaining = 0.f;
 
 protected:
 	virtual void BeginPlay() override;

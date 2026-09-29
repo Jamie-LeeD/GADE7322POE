@@ -1,4 +1,4 @@
-#include "CombatDirectorSubsystem.h"
+﻿#include "CombatDirectorSubsystem.h"
 
 #include "Components/ActorComponent.h"
 #include "Components/PrimitiveComponent.h"
@@ -8,6 +8,8 @@
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "FrostAttackComponent.h"
+#include "GoblinShamanComponent.h"
+#include "RoyalGuardianComponent.h"
 #include "GameFramework/Actor.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UnrealType.h"
@@ -42,6 +44,10 @@ namespace CombatDirectorPrivate
 		{
 			return FloatProp->GetPropertyValue_InContainer(Obj);
 		}
+		if (FIntProperty* IntProp = FindFProperty<FIntProperty>(Obj->GetClass(), Name))
+		{
+			return static_cast<float>(IntProp->GetPropertyValue_InContainer(Obj));
+		}
 		return DefaultValue;
 	}
 
@@ -59,6 +65,11 @@ namespace CombatDirectorPrivate
 		if (FFloatProperty* FloatProp = FindFProperty<FFloatProperty>(Obj->GetClass(), Name))
 		{
 			FloatProp->SetPropertyValue_InContainer(Obj, Value);
+			return;
+		}
+		if (FIntProperty* IntProp = FindFProperty<FIntProperty>(Obj->GetClass(), Name))
+		{
+			IntProp->SetPropertyValue_InContainer(Obj, FMath::RoundToInt(Value));
 		}
 	}
 
@@ -368,6 +379,12 @@ void UCombatDirectorSubsystem::ApplyDamage(AActor* Target, float Damage, AActor*
 		return;
 	}
 
+	// Defensive abilities (Royal Guardian Shield Guard) reduce damage before it reaches the health component.
+	if (const URoyalGuardianComponent* Guardian = Target->FindComponentByClass<URoyalGuardianComponent>())
+	{
+		Damage *= Guardian->GetIncomingDamageMultiplier();
+	}
+
 	const float MaxHealth = CombatDirectorPrivate::GetNumeric(Health, FName(TEXT("MaxHealth")), 100.f);
 	float Current = CombatDirectorPrivate::GetNumeric(Health, FName(TEXT("CurrentHealth")), MaxHealth);
 	const float Previous = Current;
@@ -550,7 +567,7 @@ void UCombatDirectorSubsystem::AwardGoldForKill(AActor* Victim)
 	float NewGold = CombatDirectorPrivate::GetNumeric(GM, FName(TEXT("Gold")), OldGold);
 	if (NewGold <= OldGold)
 	{
-		// AddGold didn't stick — apply directly.
+		// AddGold didn't stick â€” apply directly.
 		NewGold = OldGold + Reward;
 		CombatDirectorPrivate::SetNumeric(GM, FName(TEXT("Gold")), NewGold);
 	}
@@ -596,6 +613,7 @@ void UCombatDirectorSubsystem::FireProjectile(AActor* Attacker, AActor* Target, 
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
 	const UFrostAttackComponent* Frost = Attacker->FindComponentByClass<UFrostAttackComponent>();
+	const UGoblinShamanComponent* Shaman = Attacker->FindComponentByClass<UGoblinShamanComponent>();
 
 	AActor* Projectile = World->SpawnActor<AActor>(ProjectileClass, Muzzle, Rotation, SpawnParams);
 	if (IsValid(Projectile))
@@ -612,6 +630,10 @@ void UCombatDirectorSubsystem::FireProjectile(AActor* Attacker, AActor* Target, 
 		if (Frost)
 		{
 			Frost->TintProjectile(Projectile);
+		}
+		if (Shaman)
+		{
+			Shaman->TintProjectile(Projectile);
 		}
 	}
 	else
@@ -691,6 +713,15 @@ void UCombatDirectorSubsystem::TickRangedAttackers(float Now)
 				continue;
 			}
 
+			if (URoyalGuardianComponent* Guardian = Attacker->FindComponentByClass<URoyalGuardianComponent>(); Guardian && Guardian->bUseMeleeAttack)
+			{
+				Guardian->NotifyMeleeStrike(Target);
+				DrawDebugLine(World, Attacker->GetActorLocation(), Target->GetActorLocation(), FColor::Orange, false, 0.2f, 0, 5.f);
+				ApplyDamage(Target, Damage, Attacker);
+				NextAttackTime.Add(Attacker, Now + Cooldown);
+				continue;
+			}
+
 			UClass* ProjClass = GetClassProp(Attacker, FName(TEXT("ProjectileClass")));
 			if (!ProjClass)
 			{
@@ -735,7 +766,11 @@ void UCombatDirectorSubsystem::TickGoblinMelee(float Now)
 		}
 
 		const float Range = GetFloatProp(Goblin, FName(TEXT("AttackRange")), 280.f);
-		const float Damage = GetFloatProp(Goblin, FName(TEXT("AttackDamage")), 10.f);
+		float Damage = GetFloatProp(Goblin, FName(TEXT("AttackDamage")), 10.f);
+		if (const UEnemyStatusComponent* Status = Goblin->FindComponentByClass<UEnemyStatusComponent>())
+		{
+			Damage *= Status->GetDamageMultiplier();
+		}
 		const float Cooldown = FMath::Max(0.15f, GetFloatProp(Goblin, FName(TEXT("AttackCooldown")), 1.f));
 
 		AActor* Target = FindClosestAliveInRange(Goblin, ArcherClass, Range);
@@ -745,6 +780,13 @@ void UCombatDirectorSubsystem::TickGoblinMelee(float Now)
 		}
 		if (!Target)
 		{
+			continue;
+		}
+
+		if (const UGoblinShamanComponent* Shaman = Goblin->FindComponentByClass<UGoblinShamanComponent>(); Shaman && Shaman->bUseMagicBolt)
+		{
+			FireProjectile(Goblin, Target, Damage, ProjectileClassFallback);
+			NextAttackTime.Add(Goblin, Now + Cooldown);
 			continue;
 		}
 

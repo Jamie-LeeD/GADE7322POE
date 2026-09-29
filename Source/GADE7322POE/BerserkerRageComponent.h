@@ -85,7 +85,6 @@ protected:
 	float GetHealthPercent() const;
 	void ApplyMeshScale(float PulseAlpha);
 
-	float BaseAttackDamage = -1.f;
 	float RageAge = 0.f;
 
 	UPROPERTY()

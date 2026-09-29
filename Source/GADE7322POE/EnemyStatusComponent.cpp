@@ -76,7 +76,7 @@ void UEnemyStatusComponent::ApplySpeed()
 		BaseMoveSpeed = Current;
 	}
 
-	const float Desired = FMath::Max(0.f, BaseMoveSpeed * SlowMultiplier * SpeedBoostMultiplier);
+	const float Desired = FMath::Max(0.f, BaseMoveSpeed * SlowMultiplier * SpeedBoostMultiplier * SupportSpeedMultiplier);
 	if (!FMath::IsNearlyEqual(Current, Desired, 0.01f))
 	{
 		UnitReflection::SetNumeric(Owner, SpeedPropertyName, Desired);
@@ -132,6 +132,49 @@ void UEnemyStatusComponent::SetSpeedBoost(float Multiplier)
 	ApplySpeed();
 }
 
+void UEnemyStatusComponent::SetDamageBoost(float Multiplier)
+{
+	DamageBoostMultiplier = FMath::Max(0.f, Multiplier);
+}
+
+void UEnemyStatusComponent::ApplySupportBuff(float SpeedBonus, float DamageBonus, float Duration)
+{
+	if (Duration <= 0.f)
+	{
+		return;
+	}
+	CaptureBaseSpeed();
+
+	const bool bWasBuffed = HasSupportBuff();
+	const float NewSpeed = 1.f + FMath::Max(0.f, SpeedBonus);
+	const float NewDamage = 1.f + FMath::Max(0.f, DamageBonus);
+
+	SupportSpeedMultiplier = bWasBuffed ? FMath::Max(SupportSpeedMultiplier, NewSpeed) : NewSpeed;
+	SupportDamageMultiplier = bWasBuffed ? FMath::Max(SupportDamageMultiplier, NewDamage) : NewDamage;
+	SupportTimeRemaining = FMath::Max(SupportTimeRemaining, Duration);
+
+	ApplySpeed();
+	RefreshVisual();
+	if (!bWasBuffed)
+	{
+		OnSupportBuffChanged.Broadcast(true);
+	}
+}
+
+void UEnemyStatusComponent::ClearSupportBuff()
+{
+	const bool bWasBuffed = HasSupportBuff();
+	SupportTimeRemaining = 0.f;
+	SupportSpeedMultiplier = 1.f;
+	SupportDamageMultiplier = 1.f;
+	ApplySpeed();
+	RefreshVisual();
+	if (bWasBuffed)
+	{
+		OnSupportBuffChanged.Broadcast(false);
+	}
+}
+
 void UEnemyStatusComponent::SetBodyTint(bool bEnable, FLinearColor Color)
 {
 	bHasBodyTint = bEnable;
@@ -149,7 +192,14 @@ void UEnemyStatusComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 		if (SlowTimeRemaining <= 0.f)
 		{
 			ClearSlow();
-			return;
+		}
+	}
+	if (SupportTimeRemaining > 0.f)
+	{
+		SupportTimeRemaining -= DeltaTime;
+		if (SupportTimeRemaining <= 0.f)
+		{
+			ClearSupportBuff();
 		}
 	}
 
@@ -159,16 +209,28 @@ void UEnemyStatusComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 void UEnemyStatusComponent::RefreshVisual()
 {
 	const bool bSlowed = IsSlowed();
-	if (!bSlowed && !bHasBodyTint)
+	const bool bBuffed = HasSupportBuff();
+	if (!bSlowed && !bBuffed && !bHasBodyTint)
 	{
 		RestoreMaterials();
 		return;
 	}
 
-	FLinearColor Color = SlowedTint;
-	if (bHasBodyTint)
+	// Layers: body colour -> Shaman buff -> slow (slow is the most important to read, so it goes last).
+	bool bHasColor = bHasBodyTint;
+	FLinearColor Color = BodyTint;
+	auto Layer = [&](const FLinearColor& Tint, float Strength)
 	{
-		Color = bSlowed ? FLinearColor::LerpUsingHSV(BodyTint, SlowedTint, SlowedTintStrength) : BodyTint;
+		Color = bHasColor ? FLinearColor::LerpUsingHSV(Color, Tint, Strength) : Tint;
+		bHasColor = true;
+	};
+	if (bBuffed)
+	{
+		Layer(SupportBuffTint, SupportBuffTintStrength);
+	}
+	if (bSlowed)
+	{
+		Layer(SlowedTint, SlowedTintStrength);
 	}
 	if (bVisualApplied && Color.Equals(LastAppliedColor))
 	{
