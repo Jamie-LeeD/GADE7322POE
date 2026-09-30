@@ -8,6 +8,7 @@
 #include "GoblinShamanComponent.h"
 #include "RoyalGuardianComponent.h"
 #include "UObject/UnrealType.h"
+#include "WaveDirectorSubsystem.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUnitRoster, Log, All);
 
@@ -20,6 +21,7 @@ namespace UnitRosterPrivate
 	static constexpr float BerserkerUnlockTime = 20.f;
 
 	
+	static constexpr float ShamanSpawnChance = 0.15f;
 
 	static constexpr float ShamanUnlockTime = 35.f;
 
@@ -134,6 +136,10 @@ void UUnitRosterSubsystem::TickSpawnMix(float Now)
 	{
 		return;
 	}
+	if (const UWaveDirectorSubsystem* Waves = World->GetSubsystem<UWaveDirectorSubsystem>(); Waves && Waves->IsDirectingWaves())
+	{
+		return;
+	}
 
 	AActor* Spawner = FindFirstActor(SpawnerClass);
 	FClassProperty* GoblinClassProp = UnitRosterPrivate::FindClassProp(Spawner, FName(TEXT("GoblinClass")));
@@ -185,6 +191,26 @@ void UUnitRosterSubsystem::TickSpawnMix(float Now)
 		Next = BerserkerClass;
 	}
 	GoblinClassProp->SetObjectPropertyValue_InContainer(Spawner, Next);
+}
+
+void UUnitRosterSubsystem::ApplyVariantComponents(AActor* Actor)
+{
+	if (!IsValid(Actor))
+	{
+		return;
+	}
+	if (!bClassesResolved)
+	{
+		ResolveClasses();
+	}
+	if (BerserkerClass && Actor->IsA(BerserkerClass))
+	{
+		UnitRosterPrivate::EnsureComponent<UBerserkerRageComponent>(Actor);
+	}
+	else if (ShamanClass && Actor->IsA(ShamanClass))
+	{
+		UnitRosterPrivate::EnsureComponent<UGoblinShamanComponent>(Actor);
+	}
 }
 
 void UUnitRosterSubsystem::EnsureVariantComponents()
