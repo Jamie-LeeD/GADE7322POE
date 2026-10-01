@@ -2,12 +2,16 @@
 
 #include "CoreMinimal.h"
 #include "Subsystems/WorldSubsystem.h"
-#include "Waves/WaveTypes.h"
+#include "WaveTypes.h"
 #include "WaveDirectorSubsystem.generated.h"
 
 class UWaveStrategy;
 
-
+/**
+ * Runs procedural enemy waves. Takes over from BP_EnemySpawner's fixed timer, measures the player
+ * (tower damage, gold, defender mix, how far enemies get per lane) and asks the active
+ * UWaveStrategy what to spawn, where and when.
+ */
 UCLASS()
 class GADE7322POE_API UWaveDirectorSubsystem : public UTickableWorldSubsystem
 {
@@ -23,6 +27,7 @@ public:
 
 	bool IsDirectingWaves() const { return bDirecting; }
 
+	/** Switches strategy. Takes effect from the next wave that is built. */
 	UFUNCTION(BlueprintCallable, Category = "Waves")
 	void SetStrategyClass(TSubclassOf<UWaveStrategy> NewClass);
 
@@ -35,7 +40,7 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Waves")
 	FString GetStrategyName() const;
 
-	
+	/** One-line wave status for UI, e.g. "Next wave in 6s" or "Enemies left: 4". */
 	UFUNCTION(BlueprintPure, Category = "Waves")
 	FString GetStatusText() const;
 

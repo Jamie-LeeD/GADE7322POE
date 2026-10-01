@@ -1,4 +1,4 @@
-#include "Waves/BudgetWaveStrategy.h"
+#include "BudgetWaveStrategy.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogBudgetWaves, Log, All);
 

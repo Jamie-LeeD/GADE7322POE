@@ -1,15 +1,15 @@
-#include "Gameplay/DefenderPlacementManagerBase.h"
+#include "DefenderPlacementManagerBase.h"
 
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetBlueprintLibrary.h"
-#include "UI/DefenderBarWidget.h"
+#include "DefenderBarWidget.h"
 #include "Components/InputComponent.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/PlayerController.h"
 #include "InputCoreTypes.h"
 #include "TimerManager.h"
-#include "Units/UnitReflectionUtils.h"
+#include "UnitReflectionUtils.h"
 #include "UObject/UnrealType.h"
 #include "Widgets/Layout/Anchors.h"
 

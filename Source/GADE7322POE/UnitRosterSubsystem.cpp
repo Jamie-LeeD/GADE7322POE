@@ -1,14 +1,14 @@
-#include "Units/UnitRosterSubsystem.h"
+#include "UnitRosterSubsystem.h"
 
-#include "Units/BerserkerRageComponent.h"
+#include "BerserkerRageComponent.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
-#include "Units/FrostAttackComponent.h"
+#include "FrostAttackComponent.h"
 #include "GameFramework/Actor.h"
-#include "Units/GoblinShamanComponent.h"
-#include "Units/RoyalGuardianComponent.h"
+#include "GoblinShamanComponent.h"
+#include "RoyalGuardianComponent.h"
 #include "UObject/UnrealType.h"
-#include "Waves/WaveDirectorSubsystem.h"
+#include "WaveDirectorSubsystem.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUnitRoster, Log, All);
 

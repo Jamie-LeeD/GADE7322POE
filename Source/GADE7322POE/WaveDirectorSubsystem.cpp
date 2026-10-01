@@ -1,18 +1,18 @@
-#include "Waves/WaveDirectorSubsystem.h"
+#include "WaveDirectorSubsystem.h"
 
-#include "Waves/BudgetWaveStrategy.h"
-#include "Waves/CounterWaveStrategy.h"
+#include "BudgetWaveStrategy.h"
+#include "CounterWaveStrategy.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/Actor.h"
 #include "HAL/IConsoleManager.h"
 #include "TimerManager.h"
-#include "Units/UnitReflectionUtils.h"
-#include "Units/UnitRosterSubsystem.h"
+#include "UnitReflectionUtils.h"
+#include "UnitRosterSubsystem.h"
 #include "UObject/UnrealType.h"
-#include "Waves/WaveDirectorSettings.h"
-#include "Waves/WaveStrategy.h"
+#include "WaveDirectorSettings.h"
+#include "WaveStrategy.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogWaveDirector, Log, All);
 

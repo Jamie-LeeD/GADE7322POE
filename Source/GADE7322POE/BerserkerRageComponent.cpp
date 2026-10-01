@@ -1,9 +1,9 @@
-#include "Units/BerserkerRageComponent.h"
+#include "BerserkerRageComponent.h"
 
 #include "Components/StaticMeshComponent.h"
-#include "Units/EnemyStatusComponent.h"
+#include "EnemyStatusComponent.h"
 #include "GameFramework/Actor.h"
-#include "Units/UnitReflectionUtils.h"
+#include "UnitReflectionUtils.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogBerserker, Log, All);
 

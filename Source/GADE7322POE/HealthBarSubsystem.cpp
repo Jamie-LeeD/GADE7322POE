@@ -1,6 +1,6 @@
-#include "UI/HealthBarSubsystem.h"
+#include "HealthBarSubsystem.h"
 
-#include "UI/HealthBarComponent.h"
+#include "HealthBarComponent.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/Actor.h"

@@ -1,10 +1,10 @@
-#include "UI/DefenderSelectWidget.h"
+#include "DefenderSelectWidget.h"
 
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
 #include "Components/Image.h"
 #include "Components/TextBlock.h"
-#include "Gameplay/DefenderPlacementManagerBase.h"
+#include "DefenderPlacementManagerBase.h"
 #include "Engine/Texture2D.h"
 
 void UDefenderSelectWidget::SetDefenderData(const FText& InName, int32 InPrice, TSubclassOf<AActor> InClass, UTexture2D* InImage)

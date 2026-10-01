@@ -18,7 +18,7 @@ public:
 	virtual bool IsTickableWhenPaused() const override { return false; }
 	virtual bool IsTickableInEditor() const override { return false; }
 
-	
+	/** Adds the Berserker/Shaman component to a freshly spawned enemy straight away. */
 	void ApplyVariantComponents(AActor* Actor);
 
 protected:

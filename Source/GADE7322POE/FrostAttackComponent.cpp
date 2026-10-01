@@ -1,10 +1,10 @@
-#include "Units/FrostAttackComponent.h"
+#include "FrostAttackComponent.h"
 
 #include "Components/StaticMeshComponent.h"
-#include "Units/EnemyStatusComponent.h"
+#include "EnemyStatusComponent.h"
 #include "GameFramework/Actor.h"
 #include "Materials/MaterialInstanceDynamic.h"
-#include "Units/UnitReflectionUtils.h"
+#include "UnitReflectionUtils.h"
 
 UFrostAttackComponent::UFrostAttackComponent()
 {

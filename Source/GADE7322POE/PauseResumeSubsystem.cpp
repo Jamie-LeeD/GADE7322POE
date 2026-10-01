@@ -1,4 +1,4 @@
-#include "Gameplay/PauseResumeSubsystem.h"
+#include "PauseResumeSubsystem.h"
 
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetBlueprintLibrary.h"
