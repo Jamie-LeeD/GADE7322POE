@@ -1,10 +1,10 @@
-#include "RoyalGuardianComponent.h"
+#include "Units/RoyalGuardianComponent.h"
 
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/Actor.h"
-#include "UnitReflectionUtils.h"
+#include "Units/UnitReflectionUtils.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogRoyalGuardian, Log, All);
 

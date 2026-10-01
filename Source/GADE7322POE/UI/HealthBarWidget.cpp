@@ -1,4 +1,4 @@
-#include "HealthBarWidget.h"
+#include "UI/HealthBarWidget.h"
 
 #include "Components/ProgressBar.h"
 #include "Components/SizeBox.h"

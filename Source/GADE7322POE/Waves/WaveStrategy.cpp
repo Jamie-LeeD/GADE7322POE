@@ -1,4 +1,4 @@
-#include "WaveStrategy.h"
+#include "Waves/WaveStrategy.h"
 
 void UWaveStrategy::ResetStrategy(int32 Seed)
 {

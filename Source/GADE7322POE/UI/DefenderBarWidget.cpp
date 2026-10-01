@@ -1,10 +1,10 @@
-#include "DefenderBarWidget.h"
+#include "UI/DefenderBarWidget.h"
 
 #include "Components/HorizontalBox.h"
 #include "Components/HorizontalBoxSlot.h"
 #include "Components/TextBlock.h"
-#include "DefenderPlacementManagerBase.h"
-#include "DefenderSelectWidget.h"
+#include "Gameplay/DefenderPlacementManagerBase.h"
+#include "UI/DefenderSelectWidget.h"
 
 void UDefenderBarWidget::RebuildDefenderButtons()
 {

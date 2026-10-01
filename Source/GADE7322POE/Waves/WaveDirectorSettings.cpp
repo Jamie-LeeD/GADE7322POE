@@ -1,6 +1,6 @@
-#include "WaveDirectorSettings.h"
+#include "Waves/WaveDirectorSettings.h"
 
-#include "BudgetWaveStrategy.h"
+#include "Waves/BudgetWaveStrategy.h"
 
 UWaveDirectorSettings::UWaveDirectorSettings()
 {

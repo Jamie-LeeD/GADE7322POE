@@ -1,9 +1,9 @@
-#include "EnemyStatusComponent.h"
+#include "Units/EnemyStatusComponent.h"
 
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/Actor.h"
 #include "Materials/MaterialInstanceDynamic.h"
-#include "UnitReflectionUtils.h"
+#include "Units/UnitReflectionUtils.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEnemyStatus, Log, All);
 

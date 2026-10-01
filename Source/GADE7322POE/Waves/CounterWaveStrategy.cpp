@@ -1,4 +1,4 @@
-#include "CounterWaveStrategy.h"
+#include "Waves/CounterWaveStrategy.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogCounterWaves, Log, All);
 

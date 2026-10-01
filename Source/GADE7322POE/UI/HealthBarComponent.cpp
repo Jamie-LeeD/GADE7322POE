@@ -1,6 +1,6 @@
-#include "HealthBarComponent.h"
+#include "UI/HealthBarComponent.h"
 
-#include "HealthBarWidget.h"
+#include "UI/HealthBarWidget.h"
 #include "Components/TextRenderComponent.h"
 #include "GameFramework/Actor.h"
 #include "UObject/UnrealType.h"

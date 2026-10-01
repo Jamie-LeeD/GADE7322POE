@@ -1,16 +1,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "WaveStrategy.h"
+#include "Waves/WaveStrategy.h"
 #include "BudgetWaveStrategy.generated.h"
 
-/**
- * Strategy A - Threat Budget.
- * Every wave gets a threat budget that grows with the wave number and is scaled by a skill rating
- * learned from the previous waves. Enemies are bought from the budget by cost, squads are sent down
- * the lanes where enemies have historically got the furthest, and budget above the enemy cap turns
- * into extra health instead of extra bodies.
- */
 UCLASS(Blueprintable, meta = (DisplayName = "Threat Budget Strategy (A)"))
 class GADE7322POE_API UBudgetWaveStrategy : public UWaveStrategy
 {
@@ -68,14 +61,14 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Waves|Enemies", meta = (ClampMin = "1"))
 	int32 ShamanUnlockWave = 5;
 
-	/** At most one Shaman per this many other enemies, so support units always have someone to buff. */
+	
 	UPROPERTY(EditDefaultsOnly, Category = "Waves|Enemies", meta = (ClampMin = "1"))
 	int32 EnemiesPerShaman = 5;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Waves|Enemies", meta = (ClampMin = "0.0"))
 	float BerserkerWeight = 0.6f;
 
-	/** Extra Berserker weight gained per wave after they unlock. */
+	
 	UPROPERTY(EditDefaultsOnly, Category = "Waves|Enemies", meta = (ClampMin = "0.0"))
 	float BerserkerWeightPerWave = 0.08f;
 
@@ -88,15 +81,15 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Waves|Skill", meta = (ClampMin = "0.1"))
 	float MaxSkillRating = 1.6f;
 
-	/** How far a single wave's performance can move the skill rating. */
+	
 	UPROPERTY(EditDefaultsOnly, Category = "Waves|Skill", meta = (ClampMin = "0.0"))
 	float SkillLearnRate = 0.12f;
 
-	/** Tower damage per wave (fraction of max HP) that counts as "fair". Less raises skill, more lowers it. */
+	
 	UPROPERTY(EditDefaultsOnly, Category = "Waves|Skill", meta = (ClampMin = "0.01"))
 	float TargetTowerDamage = 0.08f;
 
-	/** Average enemy progress (0..1) that counts as "fair". */
+	
 	UPROPERTY(EditDefaultsOnly, Category = "Waves|Skill", meta = (ClampMin = "0.01", ClampMax = "1.0"))
 	float TargetProgress = 0.55f;
 
