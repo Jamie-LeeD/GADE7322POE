@@ -4,13 +4,8 @@
 #include "WaveStrategy.h"
 #include "BudgetWaveStrategy.generated.h"
 
-/**
- * Strategy A - Threat Budget.
- * Every wave gets a threat budget that grows with the wave number and is scaled by a skill rating
- * learned from the previous waves. Enemies are bought from the budget by cost, squads are sent down
- * the lanes where enemies have historically got the furthest, and budget above the enemy cap turns
- * into extra health instead of extra bodies.
- */
+//Strategy A - Threat Budget. Every wave gets a threat budget that grows with the wave number and is scaled by a skill rating learned from the previous waves. Enemies are bought from the budget by cost, squads are sent down the lanes where enemies have historically got the furthest, and budget above the enemy cap turns into extra health instead of extra bodies.
+
 UCLASS(Blueprintable, meta = (DisplayName = "Threat Budget Strategy (A)"))
 class GADE7322POE_API UBudgetWaveStrategy : public UWaveStrategy
 {

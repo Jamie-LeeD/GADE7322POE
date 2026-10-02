@@ -520,8 +520,15 @@ bool ADefenderPlacementManagerBase::TryPlaceDefender(AActor* ClickedSlot, TSubcl
 	//Spend gold only after the spawn succeeded; roll the spawn back if the spend is refused.
 	if (Cost > 0)
 	{
+		const int32 GoldBefore = GetPlayerGold();
 		bool bCalled = false;
 		bool bSpent = CallGameManagerAmountFunction(FName(TEXT("SpendGold")), Cost, bCalled);
+		if (bCalled && !bSpent)
+		{
+			// BP SpendGold evaluates its success output after subtracting, so it reports false
+			// whenever the remaining gold is below the cost even though the gold was taken.
+			bSpent = GetPlayerGold() <= GoldBefore - Cost;
+		}
 		if (!bCalled)
 		{
 			const int32 Gold = GetPlayerGold();
