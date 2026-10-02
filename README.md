@@ -6,8 +6,8 @@ Code References & Bibliography List - [Code_References_Bibliography__Part1_GADE7
 
 Project Schedule - [ProjectSchedule_Part1_GADE7322.xlsx](https://github.com/user-attachments/files/31834633/ProjectSchedule_Part1_GADE7322.xlsx)
 
-Part 1 - Individual Tasks
+Part 2 - Group Tasks
 -------------------------------------------------------------------------------------------------------------------------------------------
-ST10453245 Video Presentation - 
+Code References & Bibliography List - [Code_References_Bibliography__Part2_GADE7322.pdf](https://github.com/user-attachments/files/32971100/Code_References_Bibliography__Part2_GADE7322.pdf)
 
-ST10441037 Video Presentation -
+Project Schedule - [ProjectSchedule_Part2_GADE7322.xlsx](https://github.com/user-attachments/files/32971124/ProjectSchedule_Part2_GADE7322.xlsx)
