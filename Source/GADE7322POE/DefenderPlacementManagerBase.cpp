@@ -2,6 +2,7 @@
 
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetBlueprintLibrary.h"
+#include "CollisionQueryParams.h"
 #include "DefenderBarWidget.h"
 #include "Components/InputComponent.h"
 #include "Engine/World.h"
@@ -185,9 +186,17 @@ UClass* ADefenderPlacementManagerBase::GetSlotClass() const
 {
 	if (const FClassProperty* Prop = FindFProperty<FClassProperty>(GetClass(), FName(TEXT("SlotClass"))))
 	{
-		return Cast<UClass>(Prop->GetObjectPropertyValue_InContainer(this));
+		if (UClass* SlotClass = Cast<UClass>(Prop->GetObjectPropertyValue_InContainer(this)))
+		{
+			return SlotClass;
+		}
 	}
-	return nullptr;
+	static TWeakObjectPtr<UClass> FallbackSlotClass;
+	if (!FallbackSlotClass.IsValid())
+	{
+		FallbackSlotClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Game/Defenders/BP_DefenderSlot.BP_DefenderSlot_C"));
+	}
+	return FallbackSlotClass.Get();
 }
 
 bool ADefenderPlacementManagerBase::IsGameplayActive() const
@@ -373,22 +382,119 @@ bool ADefenderPlacementManagerBase::IsSlotAvailable(AActor* ClickedSlot) const
 	bool bRecordOccupied = false;
 	if (GetSlotRecord(ClickedSlot, bFound, bRecordOccupied))
 	{
-		return bFound && !bRecordOccupied;
+		// Missing from the Slots array still counts as free if the pad actor itself is unoccupied.
+		return !bRecordOccupied;
 	}
 	return true;
+}
+
+AActor* ADefenderPlacementManagerBase::ResolveSlotFromActor(AActor* HitActor) const
+{
+	UClass* SlotClass = GetSlotClass();
+	if (!IsValid(HitActor) || !SlotClass)
+	{
+		return nullptr;
+	}
+
+	for (AActor* Cursor = HitActor; IsValid(Cursor); Cursor = Cursor->GetAttachParentActor())
+	{
+		if (Cursor->IsA(SlotClass))
+		{
+			return Cursor;
+		}
+	}
+
+	// Terrain tiles often store their pad on a DefenderSlot object property.
+	if (const FObjectProperty* SlotProp = FindFProperty<FObjectProperty>(HitActor->GetClass(), FName(TEXT("DefenderSlot"))))
+	{
+		if (AActor* LinkedSlot = Cast<AActor>(SlotProp->GetObjectPropertyValue_InContainer(HitActor)))
+		{
+			if (LinkedSlot->IsA(SlotClass))
+			{
+				return LinkedSlot;
+			}
+		}
+	}
+
+	return nullptr;
+}
+
+AActor* ADefenderPlacementManagerBase::FindNearestSlot(const FVector& WorldLocation) const
+{
+	UWorld* World = GetWorld();
+	UClass* SlotClass = GetSlotClass();
+	if (!World || !SlotClass)
+	{
+		return nullptr;
+	}
+
+	AActor* Best = nullptr;
+	float BestDistSq = FMath::Square(350.f);
+	for (TActorIterator<AActor> It(World, SlotClass); It; ++It)
+	{
+		AActor* Slot = *It;
+		if (!IsValid(Slot) || !IsSlotAvailable(Slot))
+		{
+			continue;
+		}
+		const float DistSq = static_cast<float>(FVector::DistSquared2D(WorldLocation, Slot->GetActorLocation()));
+		if (DistSq < BestDistSq)
+		{
+			BestDistSq = DistSq;
+			Best = Slot;
+		}
+	}
+	return Best;
 }
 
 AActor* ADefenderPlacementManagerBase::FindSlotUnderCursor() const
 {
 	APlayerController* PC = GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
-	FHitResult Hit;
-	if (!PC || !PC->GetHitResultUnderCursor(ECC_Visibility, true, Hit))
+	UWorld* World = GetWorld();
+	if (!PC || !World)
 	{
 		return nullptr;
 	}
-	AActor* HitActor = Hit.GetActor();
-	UClass* SlotClass = GetSlotClass();
-	return (IsValid(HitActor) && (!SlotClass || HitActor->IsA(SlotClass))) ? HitActor : nullptr;
+
+	FVector WorldOrigin = FVector::ZeroVector;
+	FVector WorldDirection = FVector::ForwardVector;
+	if (!PC->DeprojectMousePositionToWorld(WorldOrigin, WorldDirection))
+	{
+		return nullptr;
+	}
+
+	const FVector TraceEnd = WorldOrigin + WorldDirection * 100000.f;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(DefenderSlotCursor), true);
+	Params.bReturnPhysicalMaterial = false;
+
+	TArray<FHitResult> Hits;
+	World->LineTraceMultiByChannel(Hits, WorldOrigin, TraceEnd, ECC_Visibility, Params);
+	if (Hits.Num() == 0)
+	{
+		World->LineTraceMultiByChannel(Hits, WorldOrigin, TraceEnd, ECC_WorldStatic, Params);
+	}
+
+	for (const FHitResult& Hit : Hits)
+	{
+		if (AActor* Slot = ResolveSlotFromActor(Hit.GetActor()))
+		{
+			return Slot;
+		}
+	}
+
+	// Fallback: click landed on the ground near a pad (tile mesh blocked the pad itself).
+	FHitResult GroundHit;
+	if (PC->GetHitResultUnderCursor(ECC_Visibility, true, GroundHit) ||
+		PC->GetHitResultUnderCursor(ECC_WorldStatic, true, GroundHit))
+	{
+		if (AActor* Slot = ResolveSlotFromActor(GroundHit.GetActor()))
+		{
+			return Slot;
+		}
+		return FindNearestSlot(GroundHit.ImpactPoint);
+	}
+
+	return nullptr;
 }
 
 void ADefenderPlacementManagerBase::SetPlacementCursor(bool bPlacing) const

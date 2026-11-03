@@ -2,15 +2,18 @@
 
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
+#include "Components/Button.h"
 #include "Components/Image.h"
+#include "Components/PanelWidget.h"
 #include "Components/TextBlock.h"
 #include "DefenderPlacementManagerBase.h"
 #include "Engine/Texture2D.h"
 
-void UDefenderSelectWidget::SetDefenderData(const FText& InName, int32 InPrice, TSubclassOf<AActor> InClass, UTexture2D* InImage)
+void UDefenderSelectWidget::SetDefenderData(const FText& InName, int32 InPrice, TSubclassOf<AActor> InClass, UTexture2D* InImage, int32 InUpgradeCost)
 {
 	DefenderName = InName;
 	DefenderPrice = FMath::Max(0, InPrice);
+	UpgradeCost = FMath::Max(0, InUpgradeCost);
 	DefenderClass = InClass;
 	DefenderIcon = InImage;
 	RefreshDisplay();
@@ -19,6 +22,11 @@ void UDefenderSelectWidget::SetDefenderData(const FText& InName, int32 InPrice, 
 int32 UDefenderSelectWidget::GetEffectivePrice() const
 {
 	return DefenderPrice > 0 ? DefenderPrice : ADefenderPlacementManagerBase::GetDefenderClassCost(DefenderClass, 0);
+}
+
+int32 UDefenderSelectWidget::GetEffectiveUpgradeCost() const
+{
+	return FMath::Max(0, UpgradeCost);
 }
 
 FText UDefenderSelectWidget::GetDisplayName() const
@@ -37,10 +45,53 @@ FText UDefenderSelectWidget::GetDisplayName() const
 	return FText::FromString(TEXT("Defender"));
 }
 
+FText UDefenderSelectWidget::GetUpgradeButtonLabel() const
+{
+	return FText::FromString(FString::Printf(TEXT("^^ %d ^^"), GetEffectiveUpgradeCost()));
+}
+
 bool UDefenderSelectWidget::IsSelected() const
 {
 	const ADefenderPlacementManagerBase* Manager = ADefenderPlacementManagerBase::GetDefenderPlacementManager(this);
 	return Manager && Manager->bIsPlacingDefender && DefenderClass && Manager->SelectedDefenderClass == DefenderClass;
+}
+
+UTextBlock* UDefenderSelectWidget::FindUpgradeButtonText() const
+{
+	if (CachedUpgradeButtonText)
+	{
+		return CachedUpgradeButtonText;
+	}
+	if (!Button_Upgrade)
+	{
+		return nullptr;
+	}
+
+	UWidget* Content = Button_Upgrade->GetContent();
+	if (UTextBlock* DirectText = Cast<UTextBlock>(Content))
+	{
+		return DirectText;
+	}
+	if (UPanelWidget* Panel = Cast<UPanelWidget>(Content))
+	{
+		for (int32 Index = 0; Index < Panel->GetChildrenCount(); ++Index)
+		{
+			if (UTextBlock* ChildText = Cast<UTextBlock>(Panel->GetChildAt(Index)))
+			{
+				return ChildText;
+			}
+		}
+	}
+	return nullptr;
+}
+
+void UDefenderSelectWidget::RefreshUpgradeButtonText()
+{
+	if (UTextBlock* UpgradeText = FindUpgradeButtonText())
+	{
+		CachedUpgradeButtonText = UpgradeText;
+		UpgradeText->SetText(GetUpgradeButtonLabel());
+	}
 }
 
 void UDefenderSelectWidget::RefreshDisplay()
@@ -68,6 +119,7 @@ void UDefenderSelectWidget::RefreshDisplay()
 			DefenderImage->SetColorAndOpacity(PlaceholderImageColor);
 		}
 	}
+	RefreshUpgradeButtonText();
 }
 
 UBorder* UDefenderSelectWidget::FindBackgroundBorder()
@@ -121,6 +173,7 @@ void UDefenderSelectWidget::UpdateStateVisuals()
 	const ADefenderPlacementManagerBase* Manager = ADefenderPlacementManagerBase::GetDefenderPlacementManager(this);
 	const bool bSelected = IsSelected();
 	const bool bAffordable = !Manager || Manager->CanAffordDefender(GetEffectivePrice());
+	const bool bUpgradeAffordable = !Manager || Manager->CanAffordDefender(GetEffectiveUpgradeCost());
 	const bool bAvailable = DefenderClass != nullptr;
 
 	if (UBorder* Border = FindBackgroundBorder())
@@ -130,6 +183,14 @@ void UDefenderSelectWidget::UpdateStateVisuals()
 	if (DefenderPriceText)
 	{
 		DefenderPriceText->SetColorAndOpacity(FSlateColor(bAffordable ? PriceColor : UnaffordablePriceColor));
+	}
+	if (UTextBlock* UpgradeText = FindUpgradeButtonText())
+	{
+		UpgradeText->SetColorAndOpacity(FSlateColor(bUpgradeAffordable ? PriceColor : UnaffordablePriceColor));
+	}
+	if (Button_Upgrade)
+	{
+		Button_Upgrade->SetIsEnabled(bAvailable && bUpgradeAffordable);
 	}
 	SetRenderOpacity((bAvailable && (bAffordable || bSelected)) ? 1.f : UnavailableOpacity);
 	SetRenderScale(bSelected ? FVector2D(1.06f, 1.06f) : FVector2D(1.f, 1.f));

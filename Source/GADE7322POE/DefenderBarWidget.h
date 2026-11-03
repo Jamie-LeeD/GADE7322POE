@@ -26,6 +26,10 @@ struct FDefenderBarEntry
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Defender")
 	TObjectPtr<UTexture2D> DefenderIcon = nullptr;
+
+	/** Appended last so existing Blueprint-saved defender entries keep their class/icon data. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Defender", meta = (ClampMin = "0"))
+	int32 UpgradeCost = 80;
 };
 
 
@@ -68,6 +72,8 @@ protected:
 
 	void BindToManager();
 	void UpdateHeading();
+	void EnsureDefaultDefenders();
+	bool HasUsableDefenderEntries() const;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Defender Bar|Widgets", meta = (BindWidgetOptional))
 	TObjectPtr<UHorizontalBox> DefenderBox;

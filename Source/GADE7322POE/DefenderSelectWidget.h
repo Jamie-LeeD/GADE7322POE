@@ -5,6 +5,7 @@
 #include "DefenderSelectWidget.generated.h"
 
 class UBorder;
+class UButton;
 class UImage;
 class UTextBlock;
 class UTexture2D;
@@ -20,7 +21,7 @@ class GADE7322POE_API UDefenderSelectWidget : public UUserWidget
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Defender")
-	void SetDefenderData(const FText& InName, int32 InPrice, TSubclassOf<AActor> InClass, UTexture2D* InImage);
+	void SetDefenderData(const FText& InName, int32 InPrice, TSubclassOf<AActor> InClass, UTexture2D* InImage, int32 InUpgradeCost = 80);
 
 	UFUNCTION(BlueprintCallable, Category = "Defender")
 	void RefreshDisplay();
@@ -34,7 +35,13 @@ public:
 	int32 GetEffectivePrice() const;
 
 	UFUNCTION(BlueprintPure, Category = "Defender")
+	int32 GetEffectiveUpgradeCost() const;
+
+	UFUNCTION(BlueprintPure, Category = "Defender")
 	FText GetDisplayName() const;
+
+	UFUNCTION(BlueprintPure, Category = "Defender")
+	FText GetUpgradeButtonLabel() const;
 
 	UFUNCTION(BlueprintPure, Category = "Defender")
 	bool IsSelected() const;
@@ -48,6 +55,10 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Defender", meta = (ExposeOnSpawn = "true", ClampMin = "0"))
 	int32 DefenderPrice = 0;
+
+	/** Gold cost for a one-off upgrade on a single placed defender of this type. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Defender", meta = (ExposeOnSpawn = "true", ClampMin = "0"))
+	int32 UpgradeCost = 80;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Defender", meta = (ExposeOnSpawn = "true"))
 	TSubclassOf<AActor> DefenderClass;
@@ -83,7 +94,9 @@ protected:
 	virtual void NativeOnMouseLeave(const FPointerEvent& InMouseEvent) override;
 
 	void UpdateStateVisuals();
+	void RefreshUpgradeButtonText();
 	UBorder* FindBackgroundBorder();
+	UTextBlock* FindUpgradeButtonText() const;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Defender|Widgets", meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> DefenderNameText;
@@ -94,8 +107,14 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Defender|Widgets", meta = (BindWidgetOptional))
 	TObjectPtr<UImage> DefenderImage;
 
+	UPROPERTY(BlueprintReadOnly, Category = "Defender|Widgets", meta = (BindWidgetOptional))
+	TObjectPtr<UButton> Button_Upgrade;
+
 	UPROPERTY(Transient)
 	TObjectPtr<UBorder> BackgroundBorder;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> CachedUpgradeButtonText;
 
 	FLinearColor NormalBorderColor = FLinearColor::White;
 	bool bBorderColorCaptured = false;

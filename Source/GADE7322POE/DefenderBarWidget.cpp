@@ -6,12 +6,57 @@
 #include "DefenderPlacementManagerBase.h"
 #include "DefenderSelectWidget.h"
 
+bool UDefenderBarWidget::HasUsableDefenderEntries() const
+{
+	for (const FDefenderBarEntry& Entry : Defenders)
+	{
+		if (Entry.DefenderClass)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+void UDefenderBarWidget::EnsureDefaultDefenders()
+{
+	if (HasUsableDefenderEntries())
+	{
+		return;
+	}
+
+	UClass* RoyalArcher = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Game/Defenders/BP_RoyalArcher.BP_RoyalArcher_C"));
+	UClass* FrostArcher = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Game/Defenders/BP_FrostArcher.BP_FrostArcher_C"));
+	UClass* RoyalGuardian = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Game/Defenders/BP_RoyalGuardian.BP_RoyalGuardian_C"));
+
+	Defenders.Reset();
+
+	auto AddEntry = [this](const TCHAR* Name, UClass* Class, int32 UpgradeGold)
+	{
+		if (!Class)
+		{
+			return;
+		}
+		FDefenderBarEntry& Entry = Defenders.AddDefaulted_GetRef();
+		Entry.DefenderName = FText::FromString(Name);
+		Entry.DefenderPrice = 0; // Uses each Blueprint's PlacementCost
+		Entry.DefenderClass = Class;
+		Entry.UpgradeCost = UpgradeGold;
+	};
+
+	AddEntry(TEXT("Royal Archer"), RoyalArcher, 80);
+	AddEntry(TEXT("Frost Archer"), FrostArcher, 100);
+	AddEntry(TEXT("Royal Guardian"), RoyalGuardian, 120);
+}
+
 void UDefenderBarWidget::RebuildDefenderButtons()
 {
 	if (!DefenderBox)
 	{
 		return;
 	}
+
+	EnsureDefaultDefenders();
 
 	for (UDefenderSelectWidget* Button : GeneratedButtons)
 	{
@@ -22,12 +67,46 @@ void UDefenderBarWidget::RebuildDefenderButtons()
 	}
 	GeneratedButtons.Reset();
 
-	// Hand-placed select widgets in the designer take priority over the Defenders list.
+	// Keep hand-placed buttons only if they already have a defender class assigned.
+	// Otherwise clear them and rebuild from the Defenders list (fixes wiped Blueprint data).
+	TArray<UDefenderSelectWidget*> HandPlaced;
 	for (UWidget* Child : DefenderBox->GetAllChildren())
 	{
-		if (Cast<UDefenderSelectWidget>(Child))
+		if (UDefenderSelectWidget* Select = Cast<UDefenderSelectWidget>(Child))
 		{
-			return;
+			HandPlaced.Add(Select);
+		}
+	}
+
+	bool bHandPlacedUsable = HandPlaced.Num() > 0;
+	for (const UDefenderSelectWidget* Select : HandPlaced)
+	{
+		if (!Select || !Select->DefenderClass)
+		{
+			bHandPlacedUsable = false;
+			break;
+		}
+	}
+
+	if (bHandPlacedUsable)
+	{
+		for (int32 Index = 0; Index < HandPlaced.Num(); ++Index)
+		{
+			UDefenderSelectWidget* Select = HandPlaced[Index];
+			if (Defenders.IsValidIndex(Index) && Select->UpgradeCost <= 0)
+			{
+				Select->UpgradeCost = Defenders[Index].UpgradeCost;
+			}
+			Select->RefreshDisplay();
+		}
+		return;
+	}
+
+	for (UDefenderSelectWidget* Select : HandPlaced)
+	{
+		if (Select)
+		{
+			Select->RemoveFromParent();
 		}
 	}
 
@@ -43,12 +122,16 @@ void UDefenderBarWidget::RebuildDefenderButtons()
 
 	for (const FDefenderBarEntry& Entry : Defenders)
 	{
+		if (!Entry.DefenderClass)
+		{
+			continue;
+		}
 		UDefenderSelectWidget* Button = CreateWidget<UDefenderSelectWidget>(this, SelectClass);
 		if (!Button)
 		{
 			continue;
 		}
-		Button->SetDefenderData(Entry.DefenderName, Entry.DefenderPrice, Entry.DefenderClass, Entry.DefenderIcon);
+		Button->SetDefenderData(Entry.DefenderName, Entry.DefenderPrice, Entry.DefenderClass, Entry.DefenderIcon, Entry.UpgradeCost);
 		if (UHorizontalBoxSlot* BoxSlot = DefenderBox->AddChildToHorizontalBox(Button))
 		{
 			BoxSlot->SetPadding(FMargin(DefenderSpacing * 0.5f, 0.f));
@@ -74,10 +157,7 @@ void UDefenderBarWidget::NativeConstruct()
 		DefaultHeadingColor = HeadingText->GetColorAndOpacity();
 		bHeadingCaptured = true;
 	}
-	if (GeneratedButtons.Num() == 0)
-	{
-		RebuildDefenderButtons();
-	}
+	RebuildDefenderButtons();
 	BindToManager();
 }
 

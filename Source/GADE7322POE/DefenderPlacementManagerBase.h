@@ -90,6 +90,8 @@ protected:
 	void SetPlacementCursor(bool bPlacing) const;
 
 	AActor* FindSlotUnderCursor() const;
+	AActor* ResolveSlotFromActor(AActor* HitActor) const;
+	AActor* FindNearestSlot(const FVector& WorldLocation) const;
 	AActor* GetGameManager() const;
 	UClass* GetSlotClass() const;
 
