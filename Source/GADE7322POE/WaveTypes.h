@@ -11,6 +11,34 @@ enum class EWaveEnemyType : uint8
 	Shaman
 };
 
+/** Tiyah Part 4/5 — procedural omen rolled each intermission. */
+UENUM(BlueprintType)
+enum class EWaveOmenType : uint8
+{
+	None,
+	RiverFlood,
+	RoyalTreasury,
+	BerserkerMoon,
+	CalmWinds,
+	WarDrums
+};
+
+USTRUCT(BlueprintType)
+struct FWaveOmen
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Waves|Omen")
+	EWaveOmenType Type = EWaveOmenType::None;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Waves|Omen")
+	FString DisplayText;
+
+	/** Lane index into FWaveContext::Lanes for lane-scoped omens (e.g. RiverFlood). */
+	UPROPERTY(BlueprintReadOnly, Category = "Waves|Omen")
+	int32 AffectedLaneIndex = INDEX_NONE;
+};
+
 /** One enemy lane: a spawn point and the path it feeds, plus what the director has learned about it. */
 USTRUCT(BlueprintType)
 struct FWaveLaneInfo

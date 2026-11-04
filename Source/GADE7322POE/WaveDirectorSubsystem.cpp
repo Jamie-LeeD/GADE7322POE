@@ -252,8 +252,10 @@ void UWaveDirectorSubsystem::EnsureStrategy(bool bApplyPending)
 	}
 
 	Strategy = NewObject<UWaveStrategy>(this, Class);
-	Strategy->ResetStrategy(FMath::Rand());
-	UE_LOG(LogWaveDirector, Warning, TEXT("Wave strategy: %s"), *Strategy->GetStrategyName());
+	OmenRunSeed = FMath::Rand();
+	OmenRandom.Initialize(OmenRunSeed);
+	Strategy->ResetStrategy(OmenRunSeed);
+	UE_LOG(LogWaveDirector, Warning, TEXT("Wave strategy: %s (omen seed %d)"), *Strategy->GetStrategyName(), OmenRunSeed);
 }
 
 void UWaveDirectorSubsystem::SetStrategyClass(TSubclassOf<UWaveStrategy> NewClass)
@@ -551,10 +553,161 @@ FWaveContext UWaveDirectorSubsystem::BuildContext(int32 WaveNumber) const
 	return Context;
 }
 
+int32 UWaveDirectorSubsystem::FindWeakestLaneIndex() const
+{
+	if (Lanes.Num() == 0)
+	{
+		return INDEX_NONE;
+	}
+	int32 Best = 0;
+	float BestProgress = Lanes[0].AverageProgress;
+	for (int32 Index = 1; Index < Lanes.Num(); ++Index)
+	{
+		if (Lanes[Index].AverageProgress > BestProgress)
+		{
+			BestProgress = Lanes[Index].AverageProgress;
+			Best = Index;
+		}
+	}
+	return Best;
+}
+
+void UWaveDirectorSubsystem::GrantOmenGold(float Amount)
+{
+	AActor* GM = CachedGameManager.Get();
+	if (!IsValid(GM) || Amount <= 0.f)
+	{
+		return;
+	}
+	const FName GoldName(TEXT("Gold"));
+	const float Current = UnitReflection::GetNumeric(GM, GoldName, 0.f);
+	UnitReflection::SetNumeric(GM, GoldName, Current + Amount);
+	UE_LOG(LogWaveDirector, Warning, TEXT("Omen gold +%.0f -> %.0f"), Amount, Current + Amount);
+}
+
+void UWaveDirectorSubsystem::RollOmen(int32 UpcomingWave)
+{
+	ActiveOmen = FWaveOmen();
+	OmenRandom.Initialize(OmenRunSeed ^ (UpcomingWave * 2654435761u));
+
+	static const EWaveOmenType Table[] = {
+		EWaveOmenType::RiverFlood,
+		EWaveOmenType::RoyalTreasury,
+		EWaveOmenType::BerserkerMoon,
+		EWaveOmenType::CalmWinds,
+		EWaveOmenType::WarDrums,
+	};
+	ActiveOmen.Type = Table[OmenRandom.RandRange(0, UE_ARRAY_COUNT(Table) - 1)];
+
+	switch (ActiveOmen.Type)
+	{
+	case EWaveOmenType::RiverFlood:
+		ActiveOmen.DisplayText = TEXT("The river floods");
+		ActiveOmen.AffectedLaneIndex = FindWeakestLaneIndex();
+		break;
+	case EWaveOmenType::RoyalTreasury:
+		ActiveOmen.DisplayText = TEXT("Royal treasury");
+		GrantOmenGold(40.f);
+		break;
+	case EWaveOmenType::BerserkerMoon:
+		ActiveOmen.DisplayText = TEXT("Berserker moon");
+		break;
+	case EWaveOmenType::CalmWinds:
+		ActiveOmen.DisplayText = TEXT("Calm winds");
+		break;
+	case EWaveOmenType::WarDrums:
+		ActiveOmen.DisplayText = TEXT("War drums");
+		break;
+	default:
+		ActiveOmen.DisplayText.Reset();
+		break;
+	}
+
+	UE_LOG(LogWaveDirector, Warning, TEXT("OMEN (wave %d): %s"), UpcomingWave, *ActiveOmen.DisplayText);
+	if (GEngine && !ActiveOmen.DisplayText.IsEmpty())
+	{
+		GEngine->AddOnScreenDebugMessage(WaveDirectorPrivate::HudKeyBase + 6, 6.f, FColor::Orange,
+			FString::Printf(TEXT("OMEN: %s"), *ActiveOmen.DisplayText));
+	}
+}
+
+void UWaveDirectorSubsystem::ApplyOmenToPlan(FWavePlan& Plan)
+{
+	if (ActiveOmen.Type == EWaveOmenType::None || Plan.Spawns.Num() == 0)
+	{
+		return;
+	}
+
+	int32 Converted = 0;
+	switch (ActiveOmen.Type)
+	{
+	case EWaveOmenType::RiverFlood:
+	{
+		const int32 Lane = ActiveOmen.AffectedLaneIndex;
+		if (Lane == INDEX_NONE)
+		{
+			break;
+		}
+		for (FWaveSpawnEntry& Entry : Plan.Spawns)
+		{
+			if (Entry.LaneIndex == Lane)
+			{
+				Entry.SpeedMultiplier *= 0.7f;
+			}
+		}
+		Plan.Summary += TEXT(" | Omen: flood lane slow");
+		break;
+	}
+	case EWaveOmenType::BerserkerMoon:
+	{
+		TArray<int32> GoblinSlots;
+		for (int32 Index = 0; Index < Plan.Spawns.Num(); ++Index)
+		{
+			if (Plan.Spawns[Index].Type == EWaveEnemyType::Goblin)
+			{
+				GoblinSlots.Add(Index);
+			}
+		}
+		const int32 ToConvert = FMath::Max(1, FMath::RoundToInt(GoblinSlots.Num() * 0.3f));
+		for (int32 N = 0; N < ToConvert && GoblinSlots.Num() > 0; ++N)
+		{
+			const int32 Pick = OmenRandom.RandRange(0, GoblinSlots.Num() - 1);
+			const int32 Slot = GoblinSlots[Pick];
+			GoblinSlots.RemoveAtSwap(Pick);
+			// Preserve bElite / EliteSeed — champion goblins stay elite as berserkers.
+			Plan.Spawns[Slot].Type = EWaveEnemyType::Berserker;
+			++Converted;
+		}
+		Plan.Summary += FString::Printf(TEXT(" | Omen: +%d Berserker"), Converted);
+		break;
+	}
+	case EWaveOmenType::CalmWinds:
+		for (FWaveSpawnEntry& Entry : Plan.Spawns)
+		{
+			Entry.SpeedMultiplier *= 0.9f;
+		}
+		Plan.Summary += TEXT(" | Omen: calm winds");
+		break;
+	case EWaveOmenType::WarDrums:
+		for (FWaveSpawnEntry& Entry : Plan.Spawns)
+		{
+			Entry.HealthMultiplier *= 1.15f;
+		}
+		Plan.Summary += TEXT(" | Omen: war drums");
+		break;
+	case EWaveOmenType::RoyalTreasury:
+		Plan.Summary += TEXT(" | Omen: treasury (gold granted)");
+		break;
+	default:
+		break;
+	}
+}
+
 void UWaveDirectorSubsystem::BeginIntermission(float Now)
 {
 	Phase = EPhase::Intermission;
 	PhaseEndTime = Now + Strategy->GetIntermissionDuration(CurrentWave + 1);
+	RollOmen(CurrentWave + 1);
 }
 
 void UWaveDirectorSubsystem::BeginWave(float Now)
@@ -575,6 +728,7 @@ void UWaveDirectorSubsystem::BeginWave(float Now)
 	{
 		Entry.LaneIndex = FMath::Clamp(Entry.LaneIndex, 0, LastContext.Lanes.Num() - 1);
 	}
+	ApplyOmenToPlan(CurrentPlan);
 	LastPlanSummary = CurrentPlan.Summary;
 
 	SpawnCursor = 0;
@@ -826,7 +980,10 @@ FString UWaveDirectorSubsystem::GetStatusText() const
 	switch (Phase)
 	{
 	case EPhase::Intermission:
-		return FString::Printf(TEXT("Next wave in %ds"), FMath::CeilToInt(FMath::Max(0.f, PhaseEndTime - Now)));
+	{
+		const FString Timer = FString::Printf(TEXT("Next wave in %ds"), FMath::CeilToInt(FMath::Max(0.f, PhaseEndTime - Now)));
+		return ActiveOmen.DisplayText.IsEmpty() ? Timer : FString::Printf(TEXT("%s | %s"), *ActiveOmen.DisplayText, *Timer);
+	}
 	case EPhase::Spawning:
 		return FString::Printf(TEXT("Spawning %d/%d | Enemies left: %d"), SpawnCursor, CurrentPlan.Spawns.Num(), GetEnemiesRemaining());
 	case EPhase::Clearing:
@@ -855,6 +1012,10 @@ void UWaveDirectorSubsystem::DrawDebugHud() const
 	if (!LastPlanSummary.IsEmpty())
 	{
 		GEngine->AddOnScreenDebugMessage(HudKeyBase + 2, 0.5f, FColor::White, LastPlanSummary);
+	}
+	if (!ActiveOmen.DisplayText.IsEmpty())
+	{
+		GEngine->AddOnScreenDebugMessage(HudKeyBase + 5, 0.5f, FColor::Orange, FString::Printf(TEXT("OMEN: %s"), *ActiveOmen.DisplayText));
 	}
 	GEngine->AddOnScreenDebugMessage(HudKeyBase + 1, 0.5f, FColor::Yellow,
 		FString::Printf(TEXT("WAVE %d | %s | Strategy: %s"), CurrentWave, *GetStatusText(), *GetStrategyName()));

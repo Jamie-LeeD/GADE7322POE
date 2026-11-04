@@ -50,6 +50,13 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Waves")
 	FWaveContext GetLastContext() const { return LastContext; }
 
+	/** Active procedural omen (Tiyah) — valid from intermission through the next wave. */
+	UFUNCTION(BlueprintPure, Category = "Waves|Omen")
+	FWaveOmen GetActiveOmen() const { return ActiveOmen; }
+
+	UFUNCTION(BlueprintPure, Category = "Waves|Omen")
+	FString GetOmenText() const { return ActiveOmen.DisplayText; }
+
 protected:
 	enum class EPhase : uint8
 	{
@@ -93,6 +100,11 @@ protected:
 	void BeginWave(float Now);
 	void TickSpawning(float Now);
 	void FinishWave(float Now);
+
+	void RollOmen(int32 UpcomingWave);
+	void ApplyOmenToPlan(FWavePlan& Plan);
+	void GrantOmenGold(float Amount);
+	int32 FindWeakestLaneIndex() const;
 
 	AActor* SpawnEnemy(AActor* Spawner, const FWaveSpawnEntry& Entry);
 	AActor* CallSpawnEnemyOnPath(AActor* Spawner, int32 PathIndex) const;
@@ -149,6 +161,9 @@ protected:
 	FWavePlan CurrentPlan;
 	FWaveContext LastContext;
 	FString LastPlanSummary;
+	FWaveOmen ActiveOmen;
+	FRandomStream OmenRandom;
+	int32 OmenRunSeed = 0;
 
 	EPhase Phase = EPhase::Idle;
 	int32 CurrentWave = 0;
