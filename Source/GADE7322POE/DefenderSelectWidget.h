@@ -30,6 +30,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Defender")
 	void SelectThisDefender();
 
+	UFUNCTION(BlueprintCallable, Category = "Defender|Upgrade")
+	void BeginUpgradeForThisDefender();
+
+	UFUNCTION(BlueprintPure, Category = "Defender")
+	bool IsUpgradeModeSelected() const;
+
 	
 	UFUNCTION(BlueprintPure, Category = "Defender")
 	int32 GetEffectivePrice() const;
@@ -95,8 +101,12 @@ protected:
 
 	void UpdateStateVisuals();
 	void RefreshUpgradeButtonText();
+	void BindUpgradeButton();
 	UBorder* FindBackgroundBorder();
 	UTextBlock* FindUpgradeButtonText() const;
+
+	UFUNCTION()
+	void HandleUpgradeButtonClicked();
 
 	UPROPERTY(BlueprintReadOnly, Category = "Defender|Widgets", meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> DefenderNameText;

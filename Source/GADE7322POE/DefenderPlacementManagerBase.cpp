@@ -11,6 +11,7 @@
 #include "InputCoreTypes.h"
 #include "TimerManager.h"
 #include "UnitReflectionUtils.h"
+#include "UpgradeAuraComponent.h"
 #include "UObject/UnrealType.h"
 #include "Widgets/Layout/Anchors.h"
 
@@ -532,8 +533,10 @@ bool ADefenderPlacementManagerBase::SelectDefender(TSubclassOf<AActor> DefenderC
 
 	SelectedDefenderClass = DefenderClass;
 	SelectedDefenderCost = Cost;
+	SelectedUpgradeCost = 0;
 	SelectedDefenderName = DisplayName;
 	bIsPlacingDefender = true;
+	bIsUpgradingDefender = false;
 	SetPlacementCursor(true);
 	OnDefenderSelectionChanged.Broadcast();
 	return true;
@@ -543,20 +546,23 @@ void ADefenderPlacementManagerBase::ClearSelection()
 {
 	SelectedDefenderClass = nullptr;
 	SelectedDefenderCost = 0;
+	SelectedUpgradeCost = 0;
 	SelectedDefenderName = FText::GetEmpty();
 	bIsPlacingDefender = false;
+	bIsUpgradingDefender = false;
 	SetPlacementCursor(false);
 	OnDefenderSelectionChanged.Broadcast();
 }
 
 void ADefenderPlacementManagerBase::CancelDefenderPlacement()
 {
-	if (!bIsPlacingDefender)
+	if (!bIsPlacingDefender && !bIsUpgradingDefender)
 	{
 		return;
 	}
+	const bool bWasUpgrading = bIsUpgradingDefender;
 	ClearSelection();
-	PostMessage(TEXT("Placement cancelled"), false);
+	PostMessage(bWasUpgrading ? TEXT("Upgrade cancelled") : TEXT("Placement cancelled"), false);
 }
 
 void ADefenderPlacementManagerBase::HandleCancelInput()
@@ -564,9 +570,235 @@ void ADefenderPlacementManagerBase::HandleCancelInput()
 	CancelDefenderPlacement();
 }
 
+bool ADefenderPlacementManagerBase::IsDefenderUpgraded(const AActor* Defender)
+{
+	if (!IsValid(Defender))
+	{
+		return false;
+	}
+	if (const UUpgradeAuraComponent* Aura = Defender->FindComponentByClass<UUpgradeAuraComponent>())
+	{
+		return Aura->IsAuraVisible();
+	}
+	return false;
+}
+
+bool ADefenderPlacementManagerBase::SpendPlayerGold(int32 Amount)
+{
+	if (Amount <= 0)
+	{
+		return true;
+	}
+	if (!CanAffordDefender(Amount))
+	{
+		return false;
+	}
+
+	const int32 GoldBefore = GetPlayerGold();
+	bool bCalled = false;
+	bool bSpent = CallGameManagerAmountFunction(FName(TEXT("SpendGold")), Amount, bCalled);
+	if (bCalled && !bSpent)
+	{
+		bSpent = GetPlayerGold() <= GoldBefore - Amount;
+	}
+	if (!bCalled)
+	{
+		const int32 Gold = GetPlayerGold();
+		bSpent = Gold >= Amount;
+		if (bSpent)
+		{
+			UnitReflection::SetNumeric(GetGameManager(), FName(TEXT("Gold")), static_cast<float>(Gold - Amount));
+		}
+	}
+	return bSpent;
+}
+
+void ADefenderPlacementManagerBase::ApplyUpgradeStats(AActor* Defender) const
+{
+	if (!IsValid(Defender))
+	{
+		return;
+	}
+
+	if (UActorComponent* Health = UnitReflection::FindHealthComponent(Defender))
+	{
+		const float MaxHealth = UnitReflection::GetNumeric(Health, FName(TEXT("MaxHealth")), 100.f);
+		const float Current = UnitReflection::GetNumeric(Health, FName(TEXT("CurrentHealth")), MaxHealth);
+		const float NewMax = FMath::Max(1.f, MaxHealth * UpgradeHealthMultiplier);
+		const float Ratio = MaxHealth > 0.f ? Current / MaxHealth : 1.f;
+		UnitReflection::SetNumeric(Health, FName(TEXT("MaxHealth")), NewMax);
+		UnitReflection::SetNumeric(Health, FName(TEXT("CurrentHealth")), NewMax * Ratio);
+		UnitReflection::SetNumeric(Defender, FName(TEXT("MaxHealth")), NewMax);
+		UnitReflection::SetNumeric(Defender, FName(TEXT("CurrentHealth")), NewMax * Ratio);
+	}
+
+	if (UnitReflection::HasNumeric(Defender, FName(TEXT("AttackDamage"))))
+	{
+		const float Damage = UnitReflection::GetNumeric(Defender, FName(TEXT("AttackDamage")), 0.f);
+		UnitReflection::SetNumeric(Defender, FName(TEXT("AttackDamage")), Damage * UpgradeDamageMultiplier);
+	}
+}
+
+bool ADefenderPlacementManagerBase::BeginUpgradeMode(TSubclassOf<AActor> DefenderClass, int32 UpgradeCost, FText DisplayName)
+{
+	if (!IsGameplayActive())
+	{
+		return false;
+	}
+	if (!DefenderClass)
+	{
+		PostMessage(FString::Printf(TEXT("%s is not available yet"), *DisplayName.ToString()), true);
+		return false;
+	}
+
+	UpgradeCost = FMath::Max(0, UpgradeCost);
+	if (!CanAffordDefender(UpgradeCost))
+	{
+		PostMessage(FString::Printf(TEXT("Not enough gold to upgrade %s (need %d, have %d)"),
+			*DisplayName.ToString(), UpgradeCost, GetPlayerGold()), true);
+		return false;
+	}
+
+	SelectedDefenderClass = DefenderClass;
+	SelectedDefenderCost = 0;
+	SelectedUpgradeCost = UpgradeCost;
+	SelectedDefenderName = DisplayName;
+	bIsPlacingDefender = false;
+	bIsUpgradingDefender = true;
+	SetPlacementCursor(true);
+	OnDefenderSelectionChanged.Broadcast();
+	PostMessage(FString::Printf(TEXT("Upgrade mode: click a placed %s (^^ %d ^^)"),
+		*DisplayName.ToString(), UpgradeCost), false);
+	return true;
+}
+
+AActor* ADefenderPlacementManagerBase::FindDefenderUnderCursor(TSubclassOf<AActor> DefenderClass) const
+{
+	APlayerController* PC = GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+	UWorld* World = GetWorld();
+	if (!PC || !World || !DefenderClass)
+	{
+		return nullptr;
+	}
+
+	FVector WorldOrigin = FVector::ZeroVector;
+	FVector WorldDirection = FVector::ForwardVector;
+	if (!PC->DeprojectMousePositionToWorld(WorldOrigin, WorldDirection))
+	{
+		return nullptr;
+	}
+
+	const FVector TraceEnd = WorldOrigin + WorldDirection * 100000.f;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(DefenderUpgradeCursor), true);
+
+	TArray<FHitResult> Hits;
+	World->LineTraceMultiByChannel(Hits, WorldOrigin, TraceEnd, ECC_Visibility, Params);
+	if (Hits.Num() == 0)
+	{
+		World->LineTraceMultiByChannel(Hits, WorldOrigin, TraceEnd, ECC_WorldStatic, Params);
+	}
+
+	for (const FHitResult& Hit : Hits)
+	{
+		AActor* HitActor = Hit.GetActor();
+		if (IsValid(HitActor) && HitActor->IsA(DefenderClass))
+		{
+			return HitActor;
+		}
+	}
+
+	FHitResult GroundHit;
+	FVector SearchPoint = FVector::ZeroVector;
+	bool bHavePoint = false;
+	if (PC->GetHitResultUnderCursor(ECC_Visibility, true, GroundHit) ||
+		PC->GetHitResultUnderCursor(ECC_WorldStatic, true, GroundHit))
+	{
+		if (IsValid(GroundHit.GetActor()) && GroundHit.GetActor()->IsA(DefenderClass))
+		{
+			return GroundHit.GetActor();
+		}
+		SearchPoint = GroundHit.ImpactPoint;
+		bHavePoint = true;
+	}
+	if (!bHavePoint)
+	{
+		return nullptr;
+	}
+
+	AActor* Best = nullptr;
+	float BestDistSq = FMath::Square(400.f);
+	for (TActorIterator<AActor> It(World, DefenderClass); It; ++It)
+	{
+		AActor* Candidate = *It;
+		if (!IsValid(Candidate))
+		{
+			continue;
+		}
+		const float DistSq = static_cast<float>(FVector::DistSquared2D(SearchPoint, Candidate->GetActorLocation()));
+		if (DistSq < BestDistSq)
+		{
+			BestDistSq = DistSq;
+			Best = Candidate;
+		}
+	}
+	return Best;
+}
+
+bool ADefenderPlacementManagerBase::TryUpgradeDefender(AActor* Defender)
+{
+	if (!IsValid(Defender) || !SelectedDefenderClass || !Defender->IsA(SelectedDefenderClass))
+	{
+		PostMessage(TEXT("Click a matching placed defender to upgrade"), true);
+		return false;
+	}
+	if (IsDefenderUpgraded(Defender))
+	{
+		PostMessage(TEXT("That defender is already upgraded"), true);
+		return false;
+	}
+	if (!CanAffordDefender(SelectedUpgradeCost))
+	{
+		PostMessage(FString::Printf(TEXT("Not enough gold (need %d, have %d)"), SelectedUpgradeCost, GetPlayerGold()), true);
+		return false;
+	}
+	if (!SpendPlayerGold(SelectedUpgradeCost))
+	{
+		PostMessage(TEXT("Could not spend gold for upgrade"), true);
+		return false;
+	}
+
+	ApplyUpgradeStats(Defender);
+	UUpgradeAuraComponent::ApplyTo(Defender);
+
+	const FString Name = SelectedDefenderName.IsEmpty() ? Defender->GetName() : SelectedDefenderName.ToString();
+	const int32 Spent = SelectedUpgradeCost;
+	UE_LOG(LogDefenderPlacement, Warning, TEXT("Upgraded %s for %d gold (aura applied)"), *GetNameSafe(Defender), Spent);
+
+	ClearSelection();
+	PostMessage(FString::Printf(TEXT("%s upgraded! (-%d gold)"), *Name, Spent), false);
+	return true;
+}
+
 void ADefenderPlacementManagerBase::HandlePlaceClick()
 {
-	if (!bIsPlacingDefender || !IsGameplayActive())
+	if (!IsGameplayActive())
+	{
+		return;
+	}
+
+	if (bIsUpgradingDefender)
+	{
+		AActor* Defender = FindDefenderUnderCursor(SelectedDefenderClass);
+		if (!Defender)
+		{
+			PostMessage(TEXT("Click a placed defender to upgrade"), true);
+			return;
+		}
+		TryUpgradeDefender(Defender);
+		return;
+	}
+
+	if (!bIsPlacingDefender)
 	{
 		return;
 	}

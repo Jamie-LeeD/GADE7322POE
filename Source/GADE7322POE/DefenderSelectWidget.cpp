@@ -56,6 +56,42 @@ bool UDefenderSelectWidget::IsSelected() const
 	return Manager && Manager->bIsPlacingDefender && DefenderClass && Manager->SelectedDefenderClass == DefenderClass;
 }
 
+bool UDefenderSelectWidget::IsUpgradeModeSelected() const
+{
+	const ADefenderPlacementManagerBase* Manager = ADefenderPlacementManagerBase::GetDefenderPlacementManager(this);
+	return Manager && Manager->bIsUpgradingDefender && DefenderClass && Manager->SelectedDefenderClass == DefenderClass;
+}
+
+void UDefenderSelectWidget::BindUpgradeButton()
+{
+	if (!Button_Upgrade)
+	{
+		return;
+	}
+	Button_Upgrade->OnClicked.RemoveDynamic(this, &UDefenderSelectWidget::HandleUpgradeButtonClicked);
+	Button_Upgrade->OnClicked.AddDynamic(this, &UDefenderSelectWidget::HandleUpgradeButtonClicked);
+}
+
+void UDefenderSelectWidget::HandleUpgradeButtonClicked()
+{
+	BeginUpgradeForThisDefender();
+}
+
+void UDefenderSelectWidget::BeginUpgradeForThisDefender()
+{
+	ADefenderPlacementManagerBase* Manager = ADefenderPlacementManagerBase::GetDefenderPlacementManager(this);
+	if (!Manager)
+	{
+		return;
+	}
+	if (IsUpgradeModeSelected())
+	{
+		Manager->CancelDefenderPlacement();
+		return;
+	}
+	Manager->BeginUpgradeMode(DefenderClass, GetEffectiveUpgradeCost(), GetDisplayName());
+}
+
 UTextBlock* UDefenderSelectWidget::FindUpgradeButtonText() const
 {
 	if (CachedUpgradeButtonText)
@@ -158,6 +194,7 @@ void UDefenderSelectWidget::NativeConstruct()
 	// Must be hit-testable to receive clicks (UserWidgets default to self-hit-test-invisible).
 	SetVisibility(ESlateVisibility::Visible);
 	FindBackgroundBorder();
+	BindUpgradeButton();
 	RefreshDisplay();
 	UpdateStateVisuals();
 }
@@ -172,13 +209,14 @@ void UDefenderSelectWidget::UpdateStateVisuals()
 {
 	const ADefenderPlacementManagerBase* Manager = ADefenderPlacementManagerBase::GetDefenderPlacementManager(this);
 	const bool bSelected = IsSelected();
+	const bool bUpgradeSelected = IsUpgradeModeSelected();
 	const bool bAffordable = !Manager || Manager->CanAffordDefender(GetEffectivePrice());
 	const bool bUpgradeAffordable = !Manager || Manager->CanAffordDefender(GetEffectiveUpgradeCost());
 	const bool bAvailable = DefenderClass != nullptr;
 
 	if (UBorder* Border = FindBackgroundBorder())
 	{
-		Border->SetBrushColor(bSelected ? SelectedColor : (bHovered && bAvailable ? HoverColor : NormalBorderColor));
+		Border->SetBrushColor((bSelected || bUpgradeSelected) ? SelectedColor : (bHovered && bAvailable ? HoverColor : NormalBorderColor));
 	}
 	if (DefenderPriceText)
 	{
@@ -186,14 +224,14 @@ void UDefenderSelectWidget::UpdateStateVisuals()
 	}
 	if (UTextBlock* UpgradeText = FindUpgradeButtonText())
 	{
-		UpgradeText->SetColorAndOpacity(FSlateColor(bUpgradeAffordable ? PriceColor : UnaffordablePriceColor));
+		UpgradeText->SetColorAndOpacity(FSlateColor((bUpgradeAffordable || bUpgradeSelected) ? PriceColor : UnaffordablePriceColor));
 	}
 	if (Button_Upgrade)
 	{
-		Button_Upgrade->SetIsEnabled(bAvailable && bUpgradeAffordable);
+		Button_Upgrade->SetIsEnabled(bAvailable && (bUpgradeAffordable || bUpgradeSelected));
 	}
-	SetRenderOpacity((bAvailable && (bAffordable || bSelected)) ? 1.f : UnavailableOpacity);
-	SetRenderScale(bSelected ? FVector2D(1.06f, 1.06f) : FVector2D(1.f, 1.f));
+	SetRenderOpacity((bAvailable && (bAffordable || bSelected || bUpgradeSelected)) ? 1.f : UnavailableOpacity);
+	SetRenderScale((bSelected || bUpgradeSelected) ? FVector2D(1.06f, 1.06f) : FVector2D(1.f, 1.f));
 }
 
 void UDefenderSelectWidget::SelectThisDefender()

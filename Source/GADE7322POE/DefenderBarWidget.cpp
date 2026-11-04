@@ -210,6 +210,12 @@ void UDefenderBarWidget::UpdateHeading()
 		HeadingText->SetText(FeedbackText);
 		HeadingText->SetColorAndOpacity(FSlateColor(bFeedbackIsError ? ErrorColor : InfoColor));
 	}
+	else if (Manager && Manager->bIsUpgradingDefender)
+	{
+		HeadingText->SetText(FText::FromString(FString::Printf(TEXT("Upgrading %s (^^ %d ^^): click a placed defender  -  Right-click to cancel"),
+			*Manager->SelectedDefenderName.ToString(), Manager->SelectedUpgradeCost)));
+		HeadingText->SetColorAndOpacity(FSlateColor(InfoColor));
+	}
 	else if (Manager && Manager->bIsPlacingDefender)
 	{
 		HeadingText->SetText(FText::FromString(FString::Printf(TEXT("Placing %s (%d Gold): click a free pad  -  Right-click to cancel"),

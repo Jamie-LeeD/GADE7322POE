@@ -33,6 +33,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Defender Placement")
 	bool TryPlaceDefender(AActor* ClickedSlot, TSubclassOf<AActor> DefenderClass, int32 Cost);
 
+	/** Enter upgrade mode: next click on a matching placed defender buys a one-off upgrade. */
+	UFUNCTION(BlueprintCallable, Category = "Defender Placement|Upgrade")
+	bool BeginUpgradeMode(TSubclassOf<AActor> DefenderClass, int32 UpgradeCost, FText DisplayName);
+
+	UFUNCTION(BlueprintCallable, Category = "Defender Placement|Upgrade")
+	bool TryUpgradeDefender(AActor* Defender);
+
+	UFUNCTION(BlueprintPure, Category = "Defender Placement|Upgrade")
+	static bool IsDefenderUpgraded(const AActor* Defender);
+
 	UFUNCTION(BlueprintPure, Category = "Defender Placement")
 	bool IsSlotAvailable(AActor* ClickedSlot) const;
 
@@ -60,6 +70,18 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Defender Placement|Selection")
 	bool bIsPlacingDefender = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Defender Placement|Upgrade")
+	bool bIsUpgradingDefender = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Defender Placement|Upgrade")
+	int32 SelectedUpgradeCost = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Defender Placement|Upgrade", meta = (ClampMin = "1.0"))
+	float UpgradeHealthMultiplier = 1.35f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Defender Placement|Upgrade", meta = (ClampMin = "1.0"))
+	float UpgradeDamageMultiplier = 1.2f;
 
 	UPROPERTY(BlueprintAssignable, Category = "Defender Placement")
 	FOnDefenderSelectionChanged OnDefenderSelectionChanged;
@@ -90,10 +112,14 @@ protected:
 	void SetPlacementCursor(bool bPlacing) const;
 
 	AActor* FindSlotUnderCursor() const;
+	AActor* FindDefenderUnderCursor(TSubclassOf<AActor> DefenderClass) const;
 	AActor* ResolveSlotFromActor(AActor* HitActor) const;
 	AActor* FindNearestSlot(const FVector& WorldLocation) const;
 	AActor* GetGameManager() const;
 	UClass* GetSlotClass() const;
+
+	bool SpendPlayerGold(int32 Amount);
+	void ApplyUpgradeStats(AActor* Defender) const;
 
 	
 	bool CallGameManagerAmountFunction(FName FunctionName, int32 Amount, bool& bOutCalled) const;
