@@ -185,9 +185,20 @@ FWavePlan UCounterWaveStrategy::BuildWave(const FWaveContext& Context)
 		}
 	}
 
+	AssignEliteSpawns(Plan, Wave, bPeak, 0.10f);
+
+	int32 EliteCount = 0;
+	for (const FWaveSpawnEntry& Entry : Plan.Spawns)
+	{
+		if (Entry.bElite)
+		{
+			++EliteCount;
+		}
+	}
+
 	const FString WeakLane = LaneRanking.Num() > 0 ? FString::Printf(TEXT("path %d"), Context.Lanes[LaneRanking[0]].PathIndex) : TEXT("none");
-	Plan.Summary = FString::Printf(TEXT("Intensity %.2f%s -> %d Goblin, %d Berserker, %d Shaman (+%d greed), HP x%.2f, weakest lane %s"),
-		Intensity, bPeak ? TEXT(" [PEAK/PINCER]") : TEXT(""), Goblins, Berserkers, Shamans, LastGreedEnemies, HealthMultiplier, *WeakLane);
+	Plan.Summary = FString::Printf(TEXT("Intensity %.2f%s -> %d Goblin, %d Berserker, %d Shaman (+%d greed), HP x%.2f, elites %d, weakest lane %s"),
+		Intensity, bPeak ? TEXT(" [PEAK/PINCER]") : TEXT(""), Goblins, Berserkers, Shamans, LastGreedEnemies, HealthMultiplier, EliteCount, *WeakLane);
 
 	UE_LOG(LogCounterWaves, Log, TEXT("Wave %d: %s | defenders A%d F%d G%d | momentum %.2f"),
 		Wave, *Plan.Summary, Context.NumArchers, Context.NumFrostArchers, Context.NumGuardians, Momentum);

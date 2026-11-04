@@ -2,6 +2,7 @@
 
 #include "BudgetWaveStrategy.h"
 #include "CounterWaveStrategy.h"
+#include "ProceduralEliteComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -746,6 +747,16 @@ AActor* UWaveDirectorSubsystem::SpawnEnemy(AActor* Spawner, const FWaveSpawnEntr
 		Roster->ApplyVariantComponents(Enemy);
 	}
 	ApplyModifiers(Enemy, Entry);
+
+	if (Entry.bElite)
+	{
+		UProceduralEliteComponent* Elite = NewObject<UProceduralEliteComponent>(Enemy);
+		Elite->EliteSeed = Entry.EliteSeed != 0
+			? Entry.EliteSeed
+			: (CurrentWave * 73856093) ^ ((SpawnCursor + 1) * 19349663);
+		Enemy->AddInstanceComponent(Elite);
+		Elite->RegisterComponent();
+	}
 
 	if (FWaveLaneInfo* Lane = FindLane(PathIndex))
 	{

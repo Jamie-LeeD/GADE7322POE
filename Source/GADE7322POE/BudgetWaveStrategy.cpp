@@ -156,14 +156,22 @@ FWavePlan UBudgetWaveStrategy::BuildWave(const FWaveContext& Context)
 		}
 	}
 
+	const bool bMilestone = IsMilestoneWave(Wave);
+	AssignEliteSpawns(Plan, Wave, bMilestone, 0.10f);
+
 	int32 Counts[3] = { 0, 0, 0 };
-	for (const EWaveEnemyType Type : Bought)
+	int32 EliteCount = 0;
+	for (const FWaveSpawnEntry& Entry : Plan.Spawns)
 	{
-		++Counts[static_cast<int32>(Type)];
+		++Counts[static_cast<int32>(Entry.Type)];
+		if (Entry.bElite)
+		{
+			++EliteCount;
+		}
 	}
-	const TCHAR* Tag = IsMilestoneWave(Wave) ? TEXT(" [MILESTONE]") : (IsBreatherWave(Wave) ? TEXT(" [BREATHER]") : TEXT(""));
-	Plan.Summary = FString::Printf(TEXT("Budget %.1f -> %d Goblin, %d Berserker, %d Shaman, HP x%.2f%s"),
-		Budget, Counts[0], Counts[1], Counts[2], HealthMultiplier, Tag);
+	const TCHAR* Tag = bMilestone ? TEXT(" [MILESTONE]") : (IsBreatherWave(Wave) ? TEXT(" [BREATHER]") : TEXT(""));
+	Plan.Summary = FString::Printf(TEXT("Budget %.1f -> %d Goblin, %d Berserker, %d Shaman, HP x%.2f, elites %d%s"),
+		Budget, Counts[0], Counts[1], Counts[2], HealthMultiplier, EliteCount, Tag);
 
 	UE_LOG(LogBudgetWaves, Log, TEXT("Wave %d: %s (skill %.2f)"), Wave, *Plan.Summary, SkillRating);
 	return Plan;

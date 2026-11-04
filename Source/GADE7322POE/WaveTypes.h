@@ -102,6 +102,14 @@ struct FWaveSpawnEntry
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Waves")
 	float GoldMultiplier = 1.f;
+
+	/** Procedural elite goblin — seed-driven look + stacked stats (Jamie Part 4/5). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Waves|Elite")
+	bool bElite = false;
+
+	/** 0 = derive at spawn from wave + spawn index. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Waves|Elite")
+	int32 EliteSeed = 0;
 };
 
 USTRUCT(BlueprintType)

@@ -53,3 +53,30 @@ int32 UWaveStrategy::PickWeighted(const TArray<float>& Weights)
 	}
 	return LastPositive;
 }
+
+void UWaveStrategy::AssignEliteSpawns(FWavePlan& Plan, int32 WaveNumber, bool bGuaranteeElite, float EliteChance)
+{
+	TArray<int32> GoblinIndices;
+	for (int32 Index = 0; Index < Plan.Spawns.Num(); ++Index)
+	{
+		if (Plan.Spawns[Index].Type == EWaveEnemyType::Goblin && !Plan.Spawns[Index].bElite)
+		{
+			GoblinIndices.Add(Index);
+		}
+	}
+	if (GoblinIndices.Num() == 0)
+	{
+		return;
+	}
+
+	const bool bRollElite = bGuaranteeElite || Random.FRand() < FMath::Clamp(EliteChance, 0.f, 1.f);
+	if (!bRollElite)
+	{
+		return;
+	}
+
+	const int32 Pick = GoblinIndices[Random.RandRange(0, GoblinIndices.Num() - 1)];
+	FWaveSpawnEntry& Entry = Plan.Spawns[Pick];
+	Entry.bElite = true;
+	Entry.EliteSeed = (WaveNumber * 73856093) ^ ((Pick + 1) * 19349663) ^ Random.RandHelper(0x7fffffff);
+}

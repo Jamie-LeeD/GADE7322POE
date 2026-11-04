@@ -44,5 +44,11 @@ protected:
 	/** Picks an index from Weights proportionally to its weight (zero weights are never picked). */
 	int32 PickWeighted(const TArray<float>& Weights);
 
+	/**
+	 * Marks goblin spawn entries as procedural elites.
+	 * If bGuaranteeElite, at least one goblin (if any) becomes elite; otherwise EliteChance applies.
+	 */
+	void AssignEliteSpawns(FWavePlan& Plan, int32 WaveNumber, bool bGuaranteeElite, float EliteChance = 0.1f);
+
 	FRandomStream Random;
 };
