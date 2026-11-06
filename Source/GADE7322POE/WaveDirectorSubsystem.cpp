@@ -278,7 +278,7 @@ void UWaveDirectorSubsystem::SetStrategyClass(TSubclassOf<UWaveStrategy> NewClas
 	{
 		UE_LOG(LogWaveDirector, Warning, TEXT("Wave strategy will switch to %s at the next wave"), *Name);
 	}
-	if (GEngine)
+	if (GEngine && GetDefault<UWaveDirectorSettings>()->bShowDebugHud)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 4.f, FColor::Orange, FString::Printf(TEXT("Next wave uses strategy: %s"), *Name));
 	}
@@ -635,7 +635,7 @@ void UWaveDirectorSubsystem::RollOmen(int32 UpcomingWave)
 	}
 
 	UE_LOG(LogWaveDirector, Warning, TEXT("OMEN (wave %d): %s"), UpcomingWave, *ActiveOmen.DisplayText);
-	if (GEngine && !ActiveOmen.DisplayText.IsEmpty())
+	if (GEngine && GetDefault<UWaveDirectorSettings>()->bShowDebugHud && !ActiveOmen.DisplayText.IsEmpty())
 	{
 		GEngine->AddOnScreenDebugMessage(WaveDirectorPrivate::HudKeyBase + 6, 6.f, FColor::Orange,
 			FString::Printf(TEXT("OMEN: %s"), *ActiveOmen.DisplayText));
@@ -752,7 +752,7 @@ void UWaveDirectorSubsystem::BeginWave(float Now)
 	Phase = EPhase::Spawning;
 
 	UE_LOG(LogWaveDirector, Warning, TEXT("=== WAVE %d (%s): %s"), CurrentWave, *Strategy->GetStrategyName(), *CurrentPlan.Summary);
-	if (GEngine)
+	if (GEngine && GetDefault<UWaveDirectorSettings>()->bShowDebugHud)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("WAVE %d incoming!"), CurrentWave));
 	}
@@ -802,7 +802,7 @@ void UWaveDirectorSubsystem::FinishWave(float Now)
 
 	UE_LOG(LogWaveDirector, Warning, TEXT("=== WAVE %d CLEARED in %.0fs: %d/%d killed, tower -%.0f%%, avg progress %.2f"),
 		Report.WaveNumber, Report.Duration, Report.EnemiesKilled, Report.EnemiesSpawned, Report.TowerDamageTaken * 100.f, Report.AverageProgress);
-	if (GEngine)
+	if (GEngine && GetDefault<UWaveDirectorSettings>()->bShowDebugHud)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 4.f, FColor::Green, FString::Printf(TEXT("Wave %d cleared!"), CurrentWave));
 	}

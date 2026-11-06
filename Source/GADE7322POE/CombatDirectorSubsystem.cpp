@@ -3,7 +3,6 @@
 #include "Components/ActorComponent.h"
 #include "Components/PrimitiveComponent.h"
 #include "Components/SceneComponent.h"
-#include "DrawDebugHelpers.h"
 #include "EnemyStatusComponent.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -679,7 +678,6 @@ void UCombatDirectorSubsystem::FireProjectile(AActor* Attacker, AActor* Target, 
 	}
 	ActiveShots.Add(Shot);
 
-	DrawDebugLine(World, Muzzle, Target->GetActorLocation(), FColor::Yellow, false, 0.2f, 0, 4.f);
 	UE_LOG(LogCombatDirector, Warning, TEXT("%s shot %s (%.0f dmg) [tracked]"), *GetNameSafe(Attacker), *GetNameSafe(Target), Damage);
 }
 
@@ -732,7 +730,6 @@ void UCombatDirectorSubsystem::TickRangedAttackers(float Now)
 			if (URoyalGuardianComponent* Guardian = Attacker->FindComponentByClass<URoyalGuardianComponent>(); Guardian && Guardian->bUseMeleeAttack)
 			{
 				Guardian->NotifyMeleeStrike(Target);
-				DrawDebugLine(World, Attacker->GetActorLocation(), Target->GetActorLocation(), FColor::Orange, false, 0.2f, 0, 5.f);
 				ApplyDamage(Target, Damage, Attacker);
 				NextAttackTime.Add(Attacker, Now + Cooldown);
 				continue;
@@ -809,8 +806,6 @@ void UCombatDirectorSubsystem::TickGoblinMelee(float Now)
 
 		ApplyDamage(Target, Damage, Goblin);
 		NextAttackTime.Add(Goblin, Now + Cooldown);
-
-		DrawDebugLine(World, Goblin->GetActorLocation(), Target->GetActorLocation(), FColor::Red, false, 0.15f, 0, 3.f);
 	}
 }
 
@@ -904,7 +899,6 @@ void UCombatDirectorSubsystem::TickProjectiles(float DeltaTime)
 			Visual->SetActorLocation(Shot.Location);
 			Visual->SetActorRotation(Delta.Rotation());
 		}
-		DrawDebugSphere(World, Shot.Location, 28.f, 6, FColor::Yellow, false, -1.f, 0, 1.5f);
 	}
 }
 

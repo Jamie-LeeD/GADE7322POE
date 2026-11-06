@@ -10,6 +10,7 @@
 #include "StartMenuWidget.h"
 #include "UiArtLibrary.h"
 #include "UObject/UnrealType.h"
+#include "WaveDirectorSettings.h"
 #include "WaveDirectorSubsystem.h"
 #include "WaveStrategy.h"
 
@@ -209,7 +210,7 @@ void UStartMenuSubsystem::HandleStrategyChosen(bool bBudgetStrategy)
 	UE_LOG(LogStartMenu, Warning, TEXT("Match started with %s strategy"),
 		bBudgetStrategy ? TEXT("Threat Budget") : TEXT("Counter-Play"));
 
-	if (GEngine)
+	if (GEngine && GetDefault<UWaveDirectorSettings>()->bShowDebugHud)
 	{
 		GEngine->AddOnScreenDebugMessage(7322500, 4.f, FColor::Green,
 			bBudgetStrategy ? TEXT("Starting: Threat Budget") : TEXT("Starting: Counter-Play"));

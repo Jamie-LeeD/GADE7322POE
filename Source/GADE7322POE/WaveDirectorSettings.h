@@ -25,6 +25,7 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Waves", meta = (AllowAbstract = "false"))
 	TSoftClassPtr<UWaveStrategy> StrategyClass;
 
+	/** On-screen wave/lane/omen debug text. */
 	UPROPERTY(Config, EditAnywhere, Category = "Waves")
 	bool bShowDebugHud = true;
 
