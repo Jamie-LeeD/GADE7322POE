@@ -11,3 +11,9 @@ Part 2 - Group Tasks
 Code References & Bibliography List - [Code_References_Bibliography__Part2_GADE7322.pdf](https://github.com/user-attachments/files/32971100/Code_References_Bibliography__Part2_GADE7322.pdf)
 
 Project Schedule - [ProjectSchedule_Part2_GADE7322.xlsx](https://github.com/user-attachments/files/32971124/ProjectSchedule_Part2_GADE7322.xlsx)
+
+Part 3 - Group Tasks
+-------------------------------------------------------------------------------------------------------------------------------------------
+Code References & Bibliography List - [Code_References_Bibliography__Part3_GADE7322.pdf](https://github.com/user-attachments/files/34478208/Code_References_Bibliography__Part3_GADE7322.pdf)
+
+Project Schedule - 
