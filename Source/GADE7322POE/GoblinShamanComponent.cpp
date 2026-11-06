@@ -1,6 +1,7 @@
 #include "GoblinShamanComponent.h"
 
 #include "Components/StaticMeshComponent.h"
+#include "EnemyFabMeshComponent.h"
 #include "EnemyStatusComponent.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -33,23 +34,37 @@ void UGoblinShamanComponent::BeginPlay()
 	UnitReflection::ApplyMaxHealthOverride(Owner, MaxHealthOverride);
 	GoblinClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Game/Enemies/BP_GoblinEnemy.BP_GoblinEnemy_C"));
 
-	// Body colour goes through the status component so Frost slows / other buffs still layer on top.
-	// Done before adding the staff so only the original body mesh is recoloured.
-	if (UEnemyStatusComponent* Status = UEnemyStatusComponent::FindOrAddTo(Owner))
+	// Fab necromancer mesh (also hides the placeholder cylinder).
+	UEnemyFabMeshComponent* Fab = UEnemyFabMeshComponent::EnsureOn(Owner);
+	const bool bHasFabBody = Fab && Fab->HasFabBody();
+
+	// Keep procedural body tint only when still on the placeholder cylinder.
+	if (!bHasFabBody)
 	{
-		Status->SetBodyTint(true, BodyColor);
+		if (UEnemyStatusComponent* Status = UEnemyStatusComponent::FindOrAddTo(Owner))
+		{
+			Status->SetBodyTint(true, BodyColor);
+		}
+	}
+	else
+	{
+		UEnemyStatusComponent::FindOrAddTo(Owner);
 	}
 
 	FVector Center;
 	FVector Extent;
 	UnitReflection::GetBodyBounds(Owner, Center, Extent);
-	const float Radius = FMath::Max(Extent.X, Extent.Y);
-	const float StaffHeight = Extent.Z * 2.f + 40.f;
 
-	StaffMesh = UnitReflection::AddVisualShape(Owner, TEXT("Cylinder"), StaffColor,
-		Center + FVector(10.f, Radius + 12.f, 20.f), FRotator::ZeroRotator, FVector(0.07f, 0.07f, StaffHeight / 100.f));
-	OrbRestLocation = Center + FVector(10.f, Radius + 12.f, 20.f + StaffHeight * 0.5f + 14.f);
-	OrbMesh = UnitReflection::AddVisualShape(Owner, TEXT("Sphere"), MagicColor, OrbRestLocation, FRotator::ZeroRotator, FVector(0.3f));
+	// Necromancer already includes a staff — only add placeholder props without Fab mesh.
+	if (!bHasFabBody)
+	{
+		const float Radius = FMath::Max(Extent.X, Extent.Y);
+		const float StaffHeight = Extent.Z * 2.f + 40.f;
+		StaffMesh = UnitReflection::AddVisualShape(Owner, TEXT("Cylinder"), StaffColor,
+			Center + FVector(10.f, Radius + 12.f, 20.f), FRotator::ZeroRotator, FVector(0.07f, 0.07f, StaffHeight / 100.f));
+		OrbRestLocation = Center + FVector(10.f, Radius + 12.f, 20.f + StaffHeight * 0.5f + 14.f);
+		OrbMesh = UnitReflection::AddVisualShape(Owner, TEXT("Sphere"), MagicColor, OrbRestLocation, FRotator::ZeroRotator, FVector(0.3f));
+	}
 
 	AuraFullScale = FVector(SupportRadius * 2.f / 100.f, SupportRadius * 2.f / 100.f, 0.01f);
 	AuraMesh = UnitReflection::AddVisualShape(Owner, TEXT("Cylinder"), MagicColor,

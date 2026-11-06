@@ -7,9 +7,12 @@
 #include "EnemyStatusComponent.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "EnemyFabMeshComponent.h"
 #include "FrostAttackComponent.h"
+#include "GameplayVfxSubsystem.h"
 #include "GoblinShamanComponent.h"
 #include "RoyalGuardianComponent.h"
+#include "TowerFabMeshComponent.h"
 #include "GameFramework/Actor.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UnrealType.h"
@@ -627,13 +630,20 @@ void UCombatDirectorSubsystem::FireProjectile(AActor* Attacker, AActor* Target, 
 			RootPrim->SetVisibility(true, true);
 			RootPrim->SetHiddenInGame(false, true);
 		}
+		FLinearColor TrailColor(1.f, 0.72f, 0.18f);
 		if (Frost)
 		{
 			Frost->TintProjectile(Projectile);
+			TrailColor = Frost->ProjectileColor;
 		}
 		if (Shaman)
 		{
 			Shaman->TintProjectile(Projectile);
+			TrailColor = Shaman->MagicColor;
+		}
+		if (UGameplayVfxSubsystem* Vfx = World->GetSubsystem<UGameplayVfxSubsystem>())
+		{
+			Vfx->AttachProjectileTrail(Projectile, TrailColor);
 		}
 	}
 	else
@@ -661,6 +671,11 @@ void UCombatDirectorSubsystem::FireProjectile(AActor* Attacker, AActor* Target, 
 	{
 		Shot.SlowPercent = Frost->SlowPercent;
 		Shot.SlowDuration = Frost->SlowDuration;
+		Shot.TrailColor = Frost->ProjectileColor;
+	}
+	else if (Shaman)
+	{
+		Shot.TrailColor = Shaman->MagicColor;
 	}
 	ActiveShots.Add(Shot);
 
@@ -690,6 +705,7 @@ void UCombatDirectorSubsystem::TickRangedAttackers(float Now)
 			{
 				continue;
 			}
+			UTowerFabMeshComponent::EnsureOn(Attacker);
 			if (!GetBoolProp(Attacker, FName(TEXT("bEnableCombat")), true))
 			{
 				continue;
@@ -752,6 +768,7 @@ void UCombatDirectorSubsystem::TickGoblinMelee(float Now)
 		{
 			continue;
 		}
+		UEnemyFabMeshComponent::EnsureOn(Goblin);
 		if (!GetBoolProp(Goblin, FName(TEXT("bEnableMelee")), true))
 		{
 			continue;
@@ -804,6 +821,17 @@ void UCombatDirectorSubsystem::ApplyShotHit(FActiveShot& Shot, AActor* Target, A
 		return;
 	}
 	Shot.bDamageApplied = true;
+
+	if (UWorld* World = GetWorld())
+	{
+		if (UGameplayVfxSubsystem* Vfx = World->GetSubsystem<UGameplayVfxSubsystem>())
+		{
+			const FVector ImpactLoc = IsValid(Target)
+				? Target->GetActorLocation() + FVector(0.f, 0.f, 50.f)
+				: Shot.Location;
+			Vfx->PlayProjectileImpactAt(ImpactLoc, Shot.TrailColor);
+		}
+	}
 
 	ApplyDamage(Target, Shot.Damage, Causer);
 

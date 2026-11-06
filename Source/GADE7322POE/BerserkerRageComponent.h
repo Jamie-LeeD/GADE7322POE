@@ -5,6 +5,7 @@
 #include "BerserkerRageComponent.generated.h"
 
 class UEnemyStatusComponent;
+class USkeletalMeshComponent;
 class UStaticMeshComponent;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnBerserkerRageChanged, bool, bIsRaging);
@@ -59,7 +60,7 @@ public:
 
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Berserker|Visual")
-	FVector BodyScale = FVector(1.2f, 1.2f, 0.9f);
+	FVector BodyScale = FVector(1.f, 1.f, 1.f);
 
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Berserker|Visual", meta = (ClampMin = "0.0"))
@@ -89,5 +90,9 @@ protected:
 	UPROPERTY()
 	TArray<TObjectPtr<UStaticMeshComponent>> BodyMeshes;
 
+	UPROPERTY()
+	TObjectPtr<USkeletalMeshComponent> FabBodyMesh;
+
 	TArray<FVector> OriginalMeshScales;
+	FVector OriginalFabScale = FVector::OneVector;
 };

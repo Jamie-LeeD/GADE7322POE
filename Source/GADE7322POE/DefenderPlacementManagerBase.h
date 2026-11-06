@@ -33,7 +33,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Defender Placement")
 	bool TryPlaceDefender(AActor* ClickedSlot, TSubclassOf<AActor> DefenderClass, int32 Cost);
 
-	/** Enter upgrade mode: next click on a matching placed defender buys a one-off upgrade. */
+	/** Instant type-wide upgrade: spends gold once and upgrades every placed defender of this class. */
+	UFUNCTION(BlueprintCallable, Category = "Defender Placement|Upgrade")
+	bool PurchaseClassUpgrade(TSubclassOf<AActor> DefenderClass, int32 BaseUpgradeCost, FText DisplayName);
+
+	/** Legacy: enters click-to-upgrade mode (kept for Blueprint compatibility). Prefer PurchaseClassUpgrade. */
 	UFUNCTION(BlueprintCallable, Category = "Defender Placement|Upgrade")
 	bool BeginUpgradeMode(TSubclassOf<AActor> DefenderClass, int32 UpgradeCost, FText DisplayName);
 
@@ -42,6 +46,15 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Defender Placement|Upgrade")
 	static bool IsDefenderUpgraded(const AActor* Defender);
+
+	UFUNCTION(BlueprintPure, Category = "Defender Placement|Upgrade")
+	int32 GetClassUpgradeLevel(TSubclassOf<AActor> DefenderClass) const;
+
+	UFUNCTION(BlueprintPure, Category = "Defender Placement|Upgrade")
+	int32 GetNextUpgradeCost(TSubclassOf<AActor> DefenderClass, int32 BaseUpgradeCost) const;
+
+	UFUNCTION(BlueprintPure, Category = "Defender Placement|Upgrade")
+	bool IsClassUpgradeMaxed(TSubclassOf<AActor> DefenderClass) const;
 
 	UFUNCTION(BlueprintPure, Category = "Defender Placement")
 	bool IsSlotAvailable(AActor* ClickedSlot) const;
@@ -83,6 +96,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Defender Placement|Upgrade", meta = (ClampMin = "1.0"))
 	float UpgradeDamageMultiplier = 1.2f;
 
+	/** How many type-wide upgrade purchases are allowed per defender class (then button greys out). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Defender Placement|Upgrade", meta = (ClampMin = "1"))
+	int32 MaxClassUpgradeLevel = 2;
+
+	/** Next upgrade cost = BaseCost * (CostGrowth ^ currentLevel). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Defender Placement|Upgrade", meta = (ClampMin = "1.0"))
+	float UpgradeCostGrowth = 1.75f;
+
 	UPROPERTY(BlueprintAssignable, Category = "Defender Placement")
 	FOnDefenderSelectionChanged OnDefenderSelectionChanged;
 
@@ -120,6 +141,11 @@ protected:
 
 	bool SpendPlayerGold(int32 Amount);
 	void ApplyUpgradeStats(AActor* Defender) const;
+	void ApplyOwnedClassUpgrades(AActor* Defender) const;
+	int32 UpgradeAllPlacedOfClass(TSubclassOf<AActor> DefenderClass) const;
+
+	/** Purchased type-wide upgrade count per defender class. */
+	TMap<TSubclassOf<AActor>, int32> ClassUpgradeLevels;
 
 	
 	bool CallGameManagerAmountFunction(FName FunctionName, int32 Amount, bool& bOutCalled) const;
@@ -127,6 +153,9 @@ protected:
 	
 	bool GetSlotRecord(const AActor* ClickedSlot, bool& bOutFound, bool& bOutOccupied) const;
 	void WriteSlotRecord(const AActor* ClickedSlot, AActor* PlacedDefender);
+
+	/** Hide the pad cube / marker on the slot (and linked tile) once a defender is placed. */
+	void SetSlotPlacementVisualOccupied(AActor* Slot, bool bOccupied) const;
 
 	FTimerHandle SetupTimer;
 	bool bInputBound = false;

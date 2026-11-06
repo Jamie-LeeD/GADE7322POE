@@ -1,6 +1,8 @@
 #include "BerserkerRageComponent.h"
 
+#include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "EnemyFabMeshComponent.h"
 #include "EnemyStatusComponent.h"
 #include "GameFramework/Actor.h"
 #include "UnitReflectionUtils.h"
@@ -25,17 +27,29 @@ void UBerserkerRageComponent::BeginPlay()
 
 	UnitReflection::ApplyMaxHealthOverride(Owner, MaxHealthOverride);
 
+	UEnemyFabMeshComponent* Fab = UEnemyFabMeshComponent::EnsureOn(Owner);
+	if (Fab && Fab->GetBodyMesh())
+	{
+		FabBodyMesh = Fab->GetBodyMesh();
+		OriginalFabScale = FabBodyMesh->GetRelativeScale3D();
+	}
+
 	TArray<UStaticMeshComponent*> Meshes;
 	UnitReflection::GetBodyMeshes(Owner, Meshes);
 	for (UStaticMeshComponent* Mesh : Meshes)
 	{
+		if (!IsValid(Mesh) || !Mesh->IsVisible())
+		{
+			continue;
+		}
 		BodyMeshes.Add(Mesh);
 		OriginalMeshScales.Add(Mesh->GetRelativeScale3D());
 	}
 	ApplyMeshScale(0.f);
 
 	Status = UEnemyStatusComponent::FindOrAddTo(Owner);
-	if (Status)
+	// Preserve Fab minotaur materials — only tint placeholder cylinders.
+	if (Status && !(Fab && Fab->HasFabBody()))
 	{
 		Status->SetBodyTint(true, BodyColor);
 	}
@@ -56,6 +70,10 @@ float UBerserkerRageComponent::GetHealthPercent() const
 void UBerserkerRageComponent::ApplyMeshScale(float PulseAlpha)
 {
 	const float Pulse = 1.f + RagePulseScale * PulseAlpha;
+	if (IsValid(FabBodyMesh))
+	{
+		FabBodyMesh->SetRelativeScale3D(OriginalFabScale * BodyScale * Pulse);
+	}
 	for (int32 Index = 0; Index < BodyMeshes.Num(); ++Index)
 	{
 		if (IsValid(BodyMeshes[Index]))

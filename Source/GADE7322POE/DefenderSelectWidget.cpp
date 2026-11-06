@@ -26,7 +26,18 @@ int32 UDefenderSelectWidget::GetEffectivePrice() const
 
 int32 UDefenderSelectWidget::GetEffectiveUpgradeCost() const
 {
+	const ADefenderPlacementManagerBase* Manager = ADefenderPlacementManagerBase::GetDefenderPlacementManager(this);
+	if (Manager && DefenderClass)
+	{
+		return Manager->GetNextUpgradeCost(DefenderClass, UpgradeCost);
+	}
 	return FMath::Max(0, UpgradeCost);
+}
+
+bool UDefenderSelectWidget::IsUpgradeMaxed() const
+{
+	const ADefenderPlacementManagerBase* Manager = ADefenderPlacementManagerBase::GetDefenderPlacementManager(this);
+	return Manager && DefenderClass && Manager->IsClassUpgradeMaxed(DefenderClass);
 }
 
 FText UDefenderSelectWidget::GetDisplayName() const
@@ -47,6 +58,10 @@ FText UDefenderSelectWidget::GetDisplayName() const
 
 FText UDefenderSelectWidget::GetUpgradeButtonLabel() const
 {
+	if (IsUpgradeMaxed())
+	{
+		return FText::FromString(TEXT("MAX"));
+	}
 	return FText::FromString(FString::Printf(TEXT("^^ %d ^^"), GetEffectiveUpgradeCost()));
 }
 
@@ -80,16 +95,18 @@ void UDefenderSelectWidget::HandleUpgradeButtonClicked()
 void UDefenderSelectWidget::BeginUpgradeForThisDefender()
 {
 	ADefenderPlacementManagerBase* Manager = ADefenderPlacementManagerBase::GetDefenderPlacementManager(this);
-	if (!Manager)
+	if (!Manager || !DefenderClass)
 	{
 		return;
 	}
-	if (IsUpgradeModeSelected())
+	if (IsUpgradeMaxed())
 	{
-		Manager->CancelDefenderPlacement();
 		return;
 	}
-	Manager->BeginUpgradeMode(DefenderClass, GetEffectiveUpgradeCost(), GetDisplayName());
+	// Instant type-wide buy — base cost is scaled by manager for the current level.
+	Manager->PurchaseClassUpgrade(DefenderClass, UpgradeCost, GetDisplayName());
+	RefreshUpgradeButtonText();
+	UpdateStateVisuals();
 }
 
 UTextBlock* UDefenderSelectWidget::FindUpgradeButtonText() const
@@ -210,9 +227,11 @@ void UDefenderSelectWidget::UpdateStateVisuals()
 	const ADefenderPlacementManagerBase* Manager = ADefenderPlacementManagerBase::GetDefenderPlacementManager(this);
 	const bool bSelected = IsSelected();
 	const bool bUpgradeSelected = IsUpgradeModeSelected();
+	const bool bUpgradeMaxed = IsUpgradeMaxed();
 	const bool bAffordable = !Manager || Manager->CanAffordDefender(GetEffectivePrice());
 	const bool bUpgradeAffordable = !Manager || Manager->CanAffordDefender(GetEffectiveUpgradeCost());
 	const bool bAvailable = DefenderClass != nullptr;
+	const bool bUpgradeEnabled = bAvailable && !bUpgradeMaxed && bUpgradeAffordable;
 
 	if (UBorder* Border = FindBackgroundBorder())
 	{
@@ -222,13 +241,18 @@ void UDefenderSelectWidget::UpdateStateVisuals()
 	{
 		DefenderPriceText->SetColorAndOpacity(FSlateColor(bAffordable ? PriceColor : UnaffordablePriceColor));
 	}
+	RefreshUpgradeButtonText();
 	if (UTextBlock* UpgradeText = FindUpgradeButtonText())
 	{
-		UpgradeText->SetColorAndOpacity(FSlateColor((bUpgradeAffordable || bUpgradeSelected) ? PriceColor : UnaffordablePriceColor));
+		const FLinearColor UpgradeColor = bUpgradeMaxed
+			? FLinearColor(0.45f, 0.45f, 0.45f, 1.f)
+			: ((bUpgradeAffordable || bUpgradeSelected) ? PriceColor : UnaffordablePriceColor);
+		UpgradeText->SetColorAndOpacity(FSlateColor(UpgradeColor));
 	}
 	if (Button_Upgrade)
 	{
-		Button_Upgrade->SetIsEnabled(bAvailable && (bUpgradeAffordable || bUpgradeSelected));
+		Button_Upgrade->SetIsEnabled(bUpgradeEnabled);
+		Button_Upgrade->SetRenderOpacity(bUpgradeMaxed ? 0.45f : 1.f);
 	}
 	SetRenderOpacity((bAvailable && (bAffordable || bSelected || bUpgradeSelected)) ? 1.f : UnavailableOpacity);
 	SetRenderScale((bSelected || bUpgradeSelected) ? FVector2D(1.06f, 1.06f) : FVector2D(1.f, 1.f));

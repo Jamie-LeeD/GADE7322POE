@@ -52,6 +52,7 @@ protected:
 		bool bDamageApplied = false;
 		float SlowPercent = 0.f;
 		float SlowDuration = 0.f;
+		FLinearColor TrailColor = FLinearColor(1.f, 0.72f, 0.18f);
 	};
 
 	void ApplyShotHit(FActiveShot& Shot, AActor* Target, AActor* Causer);

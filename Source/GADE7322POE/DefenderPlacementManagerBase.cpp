@@ -5,12 +5,16 @@
 #include "CollisionQueryParams.h"
 #include "DefenderBarWidget.h"
 #include "Components/InputComponent.h"
+#include "Components/PrimitiveComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/PlayerController.h"
 #include "InputCoreTypes.h"
+#include "Materials/MaterialInterface.h"
 #include "TimerManager.h"
 #include "UnitReflectionUtils.h"
+#include "GameplayVfxSubsystem.h"
 #include "UpgradeAuraComponent.h"
 #include "UObject/UnrealType.h"
 #include "Widgets/Layout/Anchors.h"
@@ -44,6 +48,105 @@ namespace DefenderPlacementPrivate
 			}
 		}
 		return DefaultValue;
+	}
+
+	static bool NameLooksLikePadMarker(const FString& Name)
+	{
+		return Name.Contains(TEXT("Pad"), ESearchCase::IgnoreCase)
+			|| Name.Contains(TEXT("Cube"), ESearchCase::IgnoreCase)
+			|| Name.Contains(TEXT("Marker"), ESearchCase::IgnoreCase)
+			|| Name.Contains(TEXT("Placement"), ESearchCase::IgnoreCase)
+			|| Name.Contains(TEXT("SlotMesh"), ESearchCase::IgnoreCase)
+			|| Name.Contains(TEXT("Highlight"), ESearchCase::IgnoreCase);
+	}
+
+	static bool MaterialLooksLikePad(const UMaterialInterface* Material)
+	{
+		if (!Material)
+		{
+			return false;
+		}
+		// Only placement-marker materials — not the ground tile mats (M_TileDefender / path / etc).
+		const FString Name = Material->GetName();
+		return Name.Contains(TEXT("PlacementPad"), ESearchCase::IgnoreCase);
+	}
+
+	static void SetPrimitiveHidden(UPrimitiveComponent* Prim, bool bHidden)
+	{
+		if (!Prim)
+		{
+			return;
+		}
+		Prim->SetVisibility(!bHidden, true);
+		Prim->SetHiddenInGame(bHidden, true);
+	}
+
+	static void HideNamedMeshProperty(AActor* Actor, bool bHidden)
+	{
+		if (!Actor)
+		{
+			return;
+		}
+		static const TCHAR* PropNames[] = {
+			TEXT("Mesh"), TEXT("PadMesh"), TEXT("Cube"), TEXT("CubeMesh"),
+			TEXT("PlacementMesh"), TEXT("SlotMesh"), TEXT("MarkerMesh"), TEXT("Pad")
+		};
+		for (const TCHAR* PropName : PropNames)
+		{
+			if (FObjectProperty* ObjProp = FindFProperty<FObjectProperty>(Actor->GetClass(), FName(PropName)))
+			{
+				if (UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(ObjProp->GetObjectPropertyValue_InContainer(Actor)))
+				{
+					SetPrimitiveHidden(Prim, bHidden);
+				}
+			}
+		}
+	}
+
+	static void HidePadVisualsOnActor(AActor* Actor, bool bHideAllMeshes, bool bHidden)
+	{
+		if (!IsValid(Actor))
+		{
+			return;
+		}
+
+		HideNamedMeshProperty(Actor, bHidden);
+
+		TInlineComponentArray<UPrimitiveComponent*> Prims(Actor);
+		for (UPrimitiveComponent* Prim : Prims)
+		{
+			if (!Prim)
+			{
+				continue;
+			}
+
+			if (bHideAllMeshes)
+			{
+				SetPrimitiveHidden(Prim, bHidden);
+				continue;
+			}
+
+			const FString CompName = Prim->GetName();
+			bool bLooksLikePad = NameLooksLikePadMarker(CompName);
+
+			if (const UStaticMeshComponent* SMC = Cast<UStaticMeshComponent>(Prim))
+			{
+				if (const UStaticMesh* Mesh = SMC->GetStaticMesh())
+				{
+					bLooksLikePad = bLooksLikePad || NameLooksLikePadMarker(Mesh->GetName());
+				}
+				const int32 MatCount = SMC->GetNumMaterials();
+				for (int32 MatIdx = 0; MatIdx < MatCount && !bLooksLikePad; ++MatIdx)
+				{
+					bLooksLikePad = MaterialLooksLikePad(SMC->GetMaterial(MatIdx));
+				}
+			}
+
+			if (bLooksLikePad)
+			{
+				SetPrimitiveHidden(Prim, bHidden);
+			}
+		}
 	}
 }
 
@@ -284,6 +387,10 @@ int32 ADefenderPlacementManagerBase::GetDefenderClassCost(TSubclassOf<AActor> De
 {
 	if (DefenderClass)
 	{
+		if (DefenderClass->GetName().Contains(TEXT("RoyalArcher")))
+		{
+			return 10;
+		}
 		const int32 ClassCost = FMath::RoundToInt(UnitReflection::GetNumeric(DefenderClass->GetDefaultObject(), FName(TEXT("PlacementCost")), 0.f));
 		if (ClassCost > 0)
 		{
@@ -323,6 +430,53 @@ bool ADefenderPlacementManagerBase::GetSlotRecord(const AActor* ClickedSlot, boo
 		}
 	}
 	return true;
+}
+
+void ADefenderPlacementManagerBase::SetSlotPlacementVisualOccupied(AActor* Slot, bool bOccupied) const
+{
+	if (!IsValid(Slot))
+	{
+		return;
+	}
+
+	// The pad actor itself is just a placement marker — hide all of its meshes when occupied.
+	DefenderPlacementPrivate::HidePadVisualsOnActor(Slot, /*bHideAllMeshes=*/true, bOccupied);
+
+	// Child actors attached to the slot (some maps parent a cube under the pad).
+	TArray<AActor*> Attached;
+	Slot->GetAttachedActors(Attached, true, true);
+	for (AActor* Child : Attached)
+	{
+		DefenderPlacementPrivate::HidePadVisualsOnActor(Child, /*bHideAllMeshes=*/true, bOccupied);
+	}
+
+	// Terrain tiles often own the visible cube and keep a DefenderSlot object reference.
+	if (AActor* Parent = Slot->GetAttachParentActor())
+	{
+		DefenderPlacementPrivate::HidePadVisualsOnActor(Parent, /*bHideAllMeshes=*/false, bOccupied);
+	}
+
+	if (UWorld* World = GetWorld())
+	{
+		for (TActorIterator<AActor> It(World); It; ++It)
+		{
+			AActor* Candidate = *It;
+			if (!IsValid(Candidate) || Candidate == Slot)
+			{
+				continue;
+			}
+			const FObjectProperty* SlotProp = FindFProperty<FObjectProperty>(Candidate->GetClass(), FName(TEXT("DefenderSlot")));
+			if (!SlotProp)
+			{
+				continue;
+			}
+			if (SlotProp->GetObjectPropertyValue_InContainer(Candidate) != Slot)
+			{
+				continue;
+			}
+			DefenderPlacementPrivate::HidePadVisualsOnActor(Candidate, /*bHideAllMeshes=*/false, bOccupied);
+		}
+	}
 }
 
 void ADefenderPlacementManagerBase::WriteSlotRecord(const AActor* ClickedSlot, AActor* PlacedDefender)
@@ -583,6 +737,134 @@ bool ADefenderPlacementManagerBase::IsDefenderUpgraded(const AActor* Defender)
 	return false;
 }
 
+int32 ADefenderPlacementManagerBase::GetClassUpgradeLevel(TSubclassOf<AActor> DefenderClass) const
+{
+	if (!DefenderClass)
+	{
+		return 0;
+	}
+	if (const int32* Found = ClassUpgradeLevels.Find(DefenderClass))
+	{
+		return *Found;
+	}
+	return 0;
+}
+
+bool ADefenderPlacementManagerBase::IsClassUpgradeMaxed(TSubclassOf<AActor> DefenderClass) const
+{
+	return GetClassUpgradeLevel(DefenderClass) >= FMath::Max(1, MaxClassUpgradeLevel);
+}
+
+int32 ADefenderPlacementManagerBase::GetNextUpgradeCost(TSubclassOf<AActor> DefenderClass, int32 BaseUpgradeCost) const
+{
+	BaseUpgradeCost = FMath::Max(0, BaseUpgradeCost);
+	const int32 Level = GetClassUpgradeLevel(DefenderClass);
+	const float Growth = FMath::Max(1.f, UpgradeCostGrowth);
+	return FMath::Max(0, FMath::RoundToInt(static_cast<float>(BaseUpgradeCost) * FMath::Pow(Growth, static_cast<float>(Level))));
+}
+
+void ADefenderPlacementManagerBase::ApplyOwnedClassUpgrades(AActor* Defender) const
+{
+	if (!IsValid(Defender))
+	{
+		return;
+	}
+	const int32 Level = GetClassUpgradeLevel(Defender->GetClass());
+	for (int32 Index = 0; Index < Level; ++Index)
+	{
+		ApplyUpgradeStats(Defender);
+	}
+	if (Level > 0)
+	{
+		UUpgradeAuraComponent::ApplyTo(Defender, Level);
+	}
+}
+
+int32 ADefenderPlacementManagerBase::UpgradeAllPlacedOfClass(TSubclassOf<AActor> DefenderClass) const
+{
+	UWorld* World = GetWorld();
+	if (!World || !DefenderClass)
+	{
+		return 0;
+	}
+	const int32 Level = GetClassUpgradeLevel(DefenderClass);
+	int32 Count = 0;
+	for (TActorIterator<AActor> It(World, DefenderClass); It; ++It)
+	{
+		AActor* Defender = *It;
+		if (!IsValid(Defender))
+		{
+			continue;
+		}
+		ApplyUpgradeStats(Defender);
+		UUpgradeAuraComponent::ApplyTo(Defender, Level);
+		++Count;
+	}
+	return Count;
+}
+
+bool ADefenderPlacementManagerBase::PurchaseClassUpgrade(TSubclassOf<AActor> DefenderClass, int32 BaseUpgradeCost, FText DisplayName)
+{
+	if (!IsGameplayActive())
+	{
+		return false;
+	}
+	if (!DefenderClass)
+	{
+		PostMessage(FString::Printf(TEXT("%s is not available yet"), *DisplayName.ToString()), true);
+		return false;
+	}
+	if (IsClassUpgradeMaxed(DefenderClass))
+	{
+		PostMessage(FString::Printf(TEXT("%s upgrades are maxed"), *DisplayName.ToString()), true);
+		return false;
+	}
+
+	const int32 Cost = GetNextUpgradeCost(DefenderClass, BaseUpgradeCost);
+	if (!CanAffordDefender(Cost))
+	{
+		PostMessage(FString::Printf(TEXT("Not enough gold to upgrade %s (need %d, have %d)"),
+			*DisplayName.ToString(), Cost, GetPlayerGold()), true);
+		return false;
+	}
+	if (!SpendPlayerGold(Cost))
+	{
+		PostMessage(TEXT("Could not spend gold for upgrade"), true);
+		return false;
+	}
+
+	const int32 NewLevel = GetClassUpgradeLevel(DefenderClass) + 1;
+	ClassUpgradeLevels.Add(DefenderClass, NewLevel);
+	const int32 UpgradedCount = UpgradeAllPlacedOfClass(DefenderClass);
+
+	if (UWorld* World = GetWorld())
+	{
+		if (UGameplayVfxSubsystem* Vfx = World->GetSubsystem<UGameplayVfxSubsystem>())
+		{
+			for (TActorIterator<AActor> It(World, DefenderClass); It; ++It)
+			{
+				if (IsValid(*It))
+				{
+					Vfx->PlayUpgradeBurstForActor(*It);
+				}
+			}
+			if (UpgradedCount == 0)
+			{
+				Vfx->PlayUpgradeBurstAt(GetActorLocation() + FVector(0.f, 0.f, 80.f));
+			}
+		}
+	}
+
+	ClearSelection();
+	OnDefenderSelectionChanged.Broadcast();
+
+	PostMessage(FString::Printf(TEXT("%s upgraded (Lv %d) — %d unit(s) (-%d gold)"),
+		*DisplayName.ToString(), NewLevel, UpgradedCount, Cost), false);
+	UE_LOG(LogDefenderPlacement, Warning, TEXT("Class upgrade %s -> Lv %d, affected %d, cost %d"),
+		*GetNameSafe(DefenderClass.Get()), NewLevel, UpgradedCount, Cost);
+	return true;
+}
+
 bool ADefenderPlacementManagerBase::SpendPlayerGold(int32 Amount)
 {
 	if (Amount <= 0)
@@ -641,35 +923,8 @@ void ADefenderPlacementManagerBase::ApplyUpgradeStats(AActor* Defender) const
 
 bool ADefenderPlacementManagerBase::BeginUpgradeMode(TSubclassOf<AActor> DefenderClass, int32 UpgradeCost, FText DisplayName)
 {
-	if (!IsGameplayActive())
-	{
-		return false;
-	}
-	if (!DefenderClass)
-	{
-		PostMessage(FString::Printf(TEXT("%s is not available yet"), *DisplayName.ToString()), true);
-		return false;
-	}
-
-	UpgradeCost = FMath::Max(0, UpgradeCost);
-	if (!CanAffordDefender(UpgradeCost))
-	{
-		PostMessage(FString::Printf(TEXT("Not enough gold to upgrade %s (need %d, have %d)"),
-			*DisplayName.ToString(), UpgradeCost, GetPlayerGold()), true);
-		return false;
-	}
-
-	SelectedDefenderClass = DefenderClass;
-	SelectedDefenderCost = 0;
-	SelectedUpgradeCost = UpgradeCost;
-	SelectedDefenderName = DisplayName;
-	bIsPlacingDefender = false;
-	bIsUpgradingDefender = true;
-	SetPlacementCursor(true);
-	OnDefenderSelectionChanged.Broadcast();
-	PostMessage(FString::Printf(TEXT("Upgrade mode: click a placed %s (^^ %d ^^)"),
-		*DisplayName.ToString(), UpgradeCost), false);
-	return true;
+	// Instant type-wide purchase (no click-a-defender step).
+	return PurchaseClassUpgrade(DefenderClass, UpgradeCost, DisplayName);
 }
 
 AActor* ADefenderPlacementManagerBase::FindDefenderUnderCursor(TSubclassOf<AActor> DefenderClass) const
@@ -768,7 +1023,7 @@ bool ADefenderPlacementManagerBase::TryUpgradeDefender(AActor* Defender)
 	}
 
 	ApplyUpgradeStats(Defender);
-	UUpgradeAuraComponent::ApplyTo(Defender);
+	UUpgradeAuraComponent::ApplyTo(Defender, FMath::Max(1, GetClassUpgradeLevel(SelectedDefenderClass)));
 
 	const FString Name = SelectedDefenderName.IsEmpty() ? Defender->GetName() : SelectedDefenderName.ToString();
 	const int32 Spent = SelectedUpgradeCost;
@@ -884,13 +1139,21 @@ bool ADefenderPlacementManagerBase::TryPlaceDefender(AActor* ClickedSlot, TSubcl
 		}
 	}
 
-	//Occupy the slot through the existing slot actor + manager Slots record.
+	// Occupy the slot through the existing slot actor + manager Slots record.
+	if (FBoolProperty* OccupiedProp = FindFProperty<FBoolProperty>(ClickedSlot->GetClass(), FName(TEXT("bOccupied"))))
+	{
+		OccupiedProp->SetPropertyValue_InContainer(ClickedSlot, true);
+	}
 	if (UFunction* SetOccupiedFn = ClickedSlot->FindFunction(FName(TEXT("SetOccupied"))))
 	{
 		TArray<uint8> Parms;
 		Parms.SetNumZeroed(FMath::Max<int32>(1, SetOccupiedFn->ParmsSize));
 		for (TFieldIterator<FProperty> It(SetOccupiedFn); It && (It->PropertyFlags & CPF_Parm); ++It)
 		{
+			if (It->PropertyFlags & CPF_ReturnParm)
+			{
+				continue;
+			}
 			if (FBoolProperty* BoolProp = CastField<FBoolProperty>(*It))
 			{
 				BoolProp->SetPropertyValue_InContainer(Parms.GetData(), true);
@@ -899,11 +1162,9 @@ bool ADefenderPlacementManagerBase::TryPlaceDefender(AActor* ClickedSlot, TSubcl
 		}
 		ClickedSlot->ProcessEvent(SetOccupiedFn, Parms.GetData());
 	}
-	else if (FBoolProperty* OccupiedProp = FindFProperty<FBoolProperty>(ClickedSlot->GetClass(), FName(TEXT("bOccupied"))))
-	{
-		OccupiedProp->SetPropertyValue_InContainer(ClickedSlot, true);
-	}
 	WriteSlotRecord(ClickedSlot, Defender);
+	SetSlotPlacementVisualOccupied(ClickedSlot, true);
+	ApplyOwnedClassUpgrades(Defender);
 
 	UE_LOG(LogDefenderPlacement, Warning, TEXT("Placed %s on %s for %d gold (gold now %d)"),
 		*GetNameSafe(Defender), *GetNameSafe(ClickedSlot), Cost, GetPlayerGold());

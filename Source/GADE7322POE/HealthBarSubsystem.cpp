@@ -1,9 +1,10 @@
 #include "HealthBarSubsystem.h"
 
-#include "HealthBarComponent.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/Actor.h"
+#include "HealthBarComponent.h"
+#include "TowerFabMeshComponent.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogHealthBar, Log, All);
 
@@ -70,6 +71,16 @@ void UHealthBarSubsystem::EnsureBarsForClass(UClass* ActorClass, const FVector& 
 		if (!IsValid(Actor))
 		{
 			continue;
+		}
+
+		// Apply imported Blender tower meshes (princess / archer / frost / paladin).
+		{
+			const FString ClassName = Actor->GetClass()->GetName();
+			if (ClassName.Contains(TEXT("Tower")) || ClassName.Contains(TEXT("Archer")) ||
+				ClassName.Contains(TEXT("Guardian")) || ClassName.Contains(TEXT("Frost")))
+			{
+				UTowerFabMeshComponent::EnsureOn(Actor);
+			}
 		}
 
 		if (Actor->FindComponentByClass<UHealthBarComponent>())

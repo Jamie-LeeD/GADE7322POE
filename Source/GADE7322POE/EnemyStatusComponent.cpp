@@ -1,6 +1,7 @@
 #include "EnemyStatusComponent.h"
 
 #include "Components/StaticMeshComponent.h"
+#include "EnemyFabMeshComponent.h"
 #include "GameFramework/Actor.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "UnitReflectionUtils.h"
@@ -19,6 +20,13 @@ UEnemyStatusComponent* UEnemyStatusComponent::FindOrAddTo(AActor* Enemy)
 	{
 		return nullptr;
 	}
+
+	// Ensure Fab skeletal bodies are applied for goblin-family enemies.
+	if (Enemy->GetClass()->GetName().Contains(TEXT("Goblin")))
+	{
+		UEnemyFabMeshComponent::EnsureOn(Enemy);
+	}
+
 	if (UEnemyStatusComponent* Existing = Enemy->FindComponentByClass<UEnemyStatusComponent>())
 	{
 		return Existing;
@@ -237,6 +245,15 @@ void UEnemyStatusComponent::RefreshVisual()
 		return;
 	}
 
+	// Keep Fab skeletal materials intact (stylized goblin / necromancer / minotaur).
+	if (const UEnemyFabMeshComponent* Fab = GetOwner() ? GetOwner()->FindComponentByClass<UEnemyFabMeshComponent>() : nullptr)
+	{
+		if (Fab->HasFabBody())
+		{
+			return;
+		}
+	}
+
 	UMaterialInterface* BaseMaterial = UnitReflection::GetTintBaseMaterial();
 	if (!BaseMaterial)
 	{
@@ -249,6 +266,10 @@ void UEnemyStatusComponent::RefreshVisual()
 		UnitReflection::GetBodyMeshes(GetOwner(), Meshes);
 		for (UStaticMeshComponent* Mesh : Meshes)
 		{
+			if (!IsValid(Mesh) || !Mesh->IsVisible())
+			{
+				continue;
+			}
 			FStatusSavedMeshMaterials& Entry = SavedMaterials.AddDefaulted_GetRef();
 			Entry.Mesh = Mesh;
 			for (UMaterialInterface* Material : Mesh->GetMaterials())

@@ -3,6 +3,7 @@
 #include "BudgetWaveStrategy.h"
 #include "CounterWaveStrategy.h"
 #include "ProceduralEliteComponent.h"
+#include "StartMenuSubsystem.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -266,7 +267,17 @@ void UWaveDirectorSubsystem::SetStrategyClass(TSubclassOf<UWaveStrategy> NewClas
 	}
 	PendingStrategyClass = NewClass;
 	const FString Name = GetDefault<UWaveStrategy>(NewClass)->GetStrategyName();
-	UE_LOG(LogWaveDirector, Warning, TEXT("Wave strategy will switch to %s at the next wave"), *Name);
+	// Start menu picks a strategy before the first wave — apply immediately.
+	if (!bDirecting)
+	{
+		Strategy = nullptr;
+		EnsureStrategy(true);
+		UE_LOG(LogWaveDirector, Warning, TEXT("Wave strategy set to %s (pre-match)"), *Name);
+	}
+	else
+	{
+		UE_LOG(LogWaveDirector, Warning, TEXT("Wave strategy will switch to %s at the next wave"), *Name);
+	}
 	if (GEngine)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 4.f, FColor::Orange, FString::Printf(TEXT("Next wave uses strategy: %s"), *Name));
@@ -1049,6 +1060,14 @@ void UWaveDirectorSubsystem::Tick(float DeltaTime)
 		ResolveClasses();
 		ClassResolveRetryAt = Now + 1.f;
 		if (!bClassesResolved)
+		{
+			return;
+		}
+	}
+
+	if (UStartMenuSubsystem* StartMenu = World->GetSubsystem<UStartMenuSubsystem>())
+	{
+		if (!StartMenu->HasStartedMatch())
 		{
 			return;
 		}

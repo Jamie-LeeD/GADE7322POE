@@ -2,6 +2,7 @@
 
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
 #include "UnitReflectionUtils.h"
 
@@ -14,6 +15,32 @@ void UUpgradeAuraComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	AuraMaterial = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Shaders/M_UpgradeAura.M_UpgradeAura"));
+}
+
+FLinearColor UUpgradeAuraComponent::GetColorForLevel(int32 Level) const
+{
+	return Level >= 2 ? Level2Color : Level1Color;
+}
+
+void UUpgradeAuraComponent::ApplyAuraColor()
+{
+	if (!AuraMesh)
+	{
+		return;
+	}
+	if (!AuraMID && AuraMaterial)
+	{
+		AuraMID = UMaterialInstanceDynamic::Create(AuraMaterial, this);
+	}
+	if (AuraMID)
+	{
+		AuraMID->SetVectorParameterValue(TEXT("AuraColor"), GetColorForLevel(UpgradeLevel));
+		AuraMesh->SetMaterial(0, AuraMID);
+	}
+	else if (AuraMaterial)
+	{
+		AuraMesh->SetMaterial(0, AuraMaterial);
+	}
 }
 
 void UUpgradeAuraComponent::EnsureAuraMesh()
@@ -44,6 +71,8 @@ void UUpgradeAuraComponent::EnsureAuraMesh()
 		AuraMesh->SetGenerateOverlapEvents(false);
 		AuraMesh->SetCastShadow(false);
 		AuraMesh->SetCanEverAffectNavigation(false);
+		// Keep aura size independent of defender actor scale changes on upgrade.
+		AuraMesh->SetAbsolute(false, false, true);
 		Owner->AddInstanceComponent(AuraMesh);
 		AuraMesh->RegisterComponent();
 	}
@@ -51,15 +80,26 @@ void UUpgradeAuraComponent::EnsureAuraMesh()
 	FVector Center;
 	FVector Extent;
 	UnitReflection::GetBodyBounds(Owner, Center, Extent);
-	const float Radius = FMath::Max3(Extent.X, Extent.Y, Extent.Z);
-	const float SphereRadius = 50.f; // Engine basic sphere radius
-	const float Scale = FMath::Max(0.5f, (Radius * AuraScaleMultiplier) / SphereRadius);
-
 	AuraMesh->SetRelativeLocation(Center + AuraOffset * 0.15f);
-	AuraMesh->SetRelativeScale3D(FVector(Scale));
-	if (AuraMaterial)
+
+	if (!bAuraScaleLocked)
 	{
-		AuraMesh->SetMaterial(0, AuraMaterial);
+		const float Radius = FMath::Max3(Extent.X, Extent.Y, Extent.Z);
+		const float SphereRadius = 50.f;
+		LockedAuraScale = FMath::Max(0.5f, (Radius * AuraScaleMultiplier) / SphereRadius);
+		bAuraScaleLocked = true;
+	}
+	AuraMesh->SetWorldScale3D(FVector(LockedAuraScale));
+	ApplyAuraColor();
+}
+
+void UUpgradeAuraComponent::SetUpgradeLevel(int32 InUpgradeLevel)
+{
+	UpgradeLevel = FMath::Max(1, InUpgradeLevel);
+	if (bAuraVisible)
+	{
+		EnsureAuraMesh();
+		ApplyAuraColor();
 	}
 }
 
@@ -82,7 +122,7 @@ void UUpgradeAuraComponent::HideAura()
 	bAuraVisible = false;
 }
 
-UUpgradeAuraComponent* UUpgradeAuraComponent::ApplyTo(AActor* Defender)
+UUpgradeAuraComponent* UUpgradeAuraComponent::ApplyTo(AActor* Defender, int32 InUpgradeLevel)
 {
 	if (!IsValid(Defender) || Defender->IsActorBeingDestroyed())
 	{
@@ -96,6 +136,7 @@ UUpgradeAuraComponent* UUpgradeAuraComponent::ApplyTo(AActor* Defender)
 		Defender->AddInstanceComponent(Aura);
 		Aura->RegisterComponent();
 	}
+	Aura->SetUpgradeLevel(InUpgradeLevel);
 	Aura->ShowAura();
 	return Aura;
 }

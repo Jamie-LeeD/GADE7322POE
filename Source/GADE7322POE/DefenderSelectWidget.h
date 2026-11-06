@@ -43,6 +43,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Defender")
 	int32 GetEffectiveUpgradeCost() const;
 
+	UFUNCTION(BlueprintPure, Category = "Defender|Upgrade")
+	bool IsUpgradeMaxed() const;
+
 	UFUNCTION(BlueprintPure, Category = "Defender")
 	FText GetDisplayName() const;
 
@@ -62,7 +65,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Defender", meta = (ExposeOnSpawn = "true", ClampMin = "0"))
 	int32 DefenderPrice = 0;
 
-	/** Gold cost for a one-off upgrade on a single placed defender of this type. */
+	/** Base gold cost for the first type-wide upgrade (later tiers scale up on the manager). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Defender", meta = (ExposeOnSpawn = "true", ClampMin = "0"))
 	int32 UpgradeCost = 80;
 

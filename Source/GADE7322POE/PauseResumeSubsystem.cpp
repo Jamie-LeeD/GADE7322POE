@@ -4,6 +4,7 @@
 #include "Blueprint/WidgetBlueprintLibrary.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
+#include "GameInfoWidget.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UnrealType.h"
 
@@ -266,12 +267,24 @@ void UPauseResumeSubsystem::Tick(float DeltaTime)
 	}
 
 	const bool bMenuVisible = IsPauseMenuVisible();
+	const bool bInfoVisible = UGameInfoWidget::IsInfoPanelOpen(World);
 	const bool bWorldPaused = UGameplayStatics::IsGamePaused(World);
 	AActor* GM = FindGameManager();
 	const uint8 State = GetGameStateByte(GM);
 	constexpr uint8 Playing = 0;
 	constexpr uint8 Paused = 1;
 	constexpr uint8 GameOver = 2;
+
+	// Don't auto-resume while the field-guide info panel is open.
+	if (bInfoVisible)
+	{
+		if (GM)
+		{
+			PauseResumePrivate::SetBool(GM, FName(TEXT("bPaused")), true);
+		}
+		bPauseMenuWasVisible = bMenuVisible;
+		return;
+	}
 
 	// Resume clicked: menu went away but world stayed paused.
 	if (bPauseMenuWasVisible && !bMenuVisible && bWorldPaused && State != GameOver)

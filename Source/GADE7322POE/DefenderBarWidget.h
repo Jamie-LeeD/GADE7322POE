@@ -4,8 +4,11 @@
 #include "Blueprint/UserWidget.h"
 #include "DefenderBarWidget.generated.h"
 
+class UBorder;
+class UButton;
 class UDefenderSelectWidget;
 class UHorizontalBox;
+class UOverlay;
 class UTextBlock;
 class UTexture2D;
 
@@ -60,6 +63,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Defender Bar|Style")
 	FLinearColor ErrorColor = FLinearColor(1.f, 0.3f, 0.25f, 1.f);
 
+	/** Max size for the Info button art. Edit on WBP_DefenderBarBase Class Defaults. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI|Layout")
+	FVector2D InfoButtonMaxSize = FVector2D(320.f, 120.f);
+
+	/** Max box for the select-defender panel (blankpanel2). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI|Layout")
+	FVector2D PanelMaxSize = FVector2D(1100.f, 280.f);
+
 protected:
 	virtual void NativePreConstruct() override;
 	virtual void NativeConstruct() override;
@@ -74,9 +85,31 @@ protected:
 	void UpdateHeading();
 	void EnsureDefaultDefenders();
 	bool HasUsableDefenderEntries() const;
+	void EnsureInfoButton();
+	void ApplyInfoButtonStyle();
+	void ScheduleInfoButtonRestyle();
+	void ApplyPanelArt();
+	void SchedulePanelRestyle();
+
+	UFUNCTION()
+	void HandleInfoClicked();
 
 	UPROPERTY(BlueprintReadOnly, Category = "Defender Bar|Widgets", meta = (BindWidgetOptional))
 	TObjectPtr<UHorizontalBox> DefenderBox;
+
+	/** Optional panel frame — styles with blankpanel2. Name: PanelBorder or BackgroundBorder. */
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "UI")
+	TObjectPtr<UBorder> PanelBorder;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "UI")
+	TObjectPtr<UBorder> BackgroundBorder;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "UI")
+	TObjectPtr<UOverlay> PanelOverlay;
+
+	/** Optional: place a Button named InfoButton in the WBP (optionally inside a Size Box). */
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "UI")
+	TObjectPtr<UButton> InfoButton;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Defender Bar|Widgets", meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> HeadingText;

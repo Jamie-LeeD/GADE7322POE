@@ -4,6 +4,7 @@
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/Actor.h"
+#include "TowerFabMeshComponent.h"
 #include "UnitReflectionUtils.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogRoyalGuardian, Log, All);
@@ -32,22 +33,39 @@ void URoyalGuardianComponent::BeginPlay()
 	UnitReflection::ApplyMaxHealthOverride(Owner, MaxHealthOverride);
 	EnemyClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Game/Enemies/BP_GoblinEnemy.BP_GoblinEnemy_C"));
 
-	
+	UTowerFabMeshComponent* TowerMesh = UTowerFabMeshComponent::EnsureOn(Owner);
+	const bool bHasFabTower = TowerMesh && TowerMesh->HasTowerMesh();
+
 	TArray<UStaticMeshComponent*> Meshes;
 	UnitReflection::GetBodyMeshes(Owner, Meshes);
 	for (UStaticMeshComponent* Mesh : Meshes)
 	{
+		if (!IsValid(Mesh) || !Mesh->IsVisible())
+		{
+			continue;
+		}
 		BodyMeshes.Add(Mesh);
-		Mesh->SetRelativeScale3D(Mesh->GetRelativeScale3D() * BodyScale);
+		if (!bHasFabTower)
+		{
+			Mesh->SetRelativeScale3D(Mesh->GetRelativeScale3D() * BodyScale);
+		}
 	}
-	ApplyBodyColor(BodyColor);
+	if (!bHasFabTower)
+	{
+		ApplyBodyColor(BodyColor);
+	}
+
+	// Paladin Blender mesh already includes weapons — skip cylinder/cube props.
+	if (bHasFabTower)
+	{
+		return;
+	}
 
 	FVector Center;
 	FVector Extent;
 	UnitReflection::GetBodyBounds(Owner, Center, Extent);
 	const float Radius = FMath::Max(Extent.X, Extent.Y);
 
-	
 	ShieldRestLocation = Center + FVector(Radius + 6.f, 0.f, 0.f);
 	ShieldRestScale = FVector(0.95f, 0.95f, 0.12f);
 	ShieldMesh = UnitReflection::AddVisualShape(Owner, TEXT("Cylinder"), ShieldColor, ShieldRestLocation, FRotator(90.f, 0.f, 0.f), ShieldRestScale);

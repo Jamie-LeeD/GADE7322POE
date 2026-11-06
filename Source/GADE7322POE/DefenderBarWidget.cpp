@@ -1,10 +1,67 @@
 #include "DefenderBarWidget.h"
 
+#include "Components/Border.h"
+#include "Components/Button.h"
 #include "Components/HorizontalBox.h"
 #include "Components/HorizontalBoxSlot.h"
+#include "Components/Overlay.h"
+#include "Components/PanelWidget.h"
+#include "Components/SizeBox.h"
 #include "Components/TextBlock.h"
 #include "DefenderPlacementManagerBase.h"
 #include "DefenderSelectWidget.h"
+#include "Engine/World.h"
+#include "GameInfoWidget.h"
+#include "Styling/CoreStyle.h"
+#include "Styling/SlateBrush.h"
+#include "TimerManager.h"
+#include "UiArtLibrary.h"
+
+namespace DefenderBarPrivate
+{
+	static void StyleBlankPanel2(UBorder* Border, FVector2D MaxSize)
+	{
+		if (!Border)
+		{
+			return;
+		}
+		UiArt::StyleBorderImage(Border, TEXT("blankpanel2"), MaxSize);
+		FSlateBrush Brush = Border->Background;
+		Brush.DrawAs = ESlateBrushDrawType::Box;
+		if (Brush.GetResourceObject())
+		{
+			Brush.Margin = FMargin(0.35f);
+		}
+		Brush.TintColor = FSlateColor(FLinearColor::White);
+		Border->SetBrush(Brush);
+		Border->SetBrushColor(FLinearColor::White);
+		Border->SetPadding(FMargin(16.f, 12.f));
+	}
+
+	static UBorder* FindFirstBorder(UWidget* Widget)
+	{
+		if (!Widget)
+		{
+			return nullptr;
+		}
+		if (UBorder* Border = Cast<UBorder>(Widget))
+		{
+			return Border;
+		}
+		if (UPanelWidget* Panel = Cast<UPanelWidget>(Widget))
+		{
+			const int32 Num = Panel->GetChildrenCount();
+			for (int32 Index = 0; Index < Num; ++Index)
+			{
+				if (UBorder* Found = FindFirstBorder(Panel->GetChildAt(Index)))
+				{
+					return Found;
+				}
+			}
+		}
+		return nullptr;
+	}
+}
 
 bool UDefenderBarWidget::HasUsableDefenderEntries() const
 {
@@ -20,33 +77,41 @@ bool UDefenderBarWidget::HasUsableDefenderEntries() const
 
 void UDefenderBarWidget::EnsureDefaultDefenders()
 {
-	if (HasUsableDefenderEntries())
+	if (!HasUsableDefenderEntries())
 	{
-		return;
+		UClass* RoyalArcher = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Game/Defenders/BP_RoyalArcher.BP_RoyalArcher_C"));
+		UClass* FrostArcher = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Game/Defenders/BP_FrostArcher.BP_FrostArcher_C"));
+		UClass* RoyalGuardian = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Game/Defenders/BP_RoyalGuardian.BP_RoyalGuardian_C"));
+
+		Defenders.Reset();
+
+		auto AddEntry = [this](const TCHAR* Name, UClass* Class, int32 PlaceGold, int32 UpgradeGold)
+		{
+			if (!Class)
+			{
+				return;
+			}
+			FDefenderBarEntry& Entry = Defenders.AddDefaulted_GetRef();
+			Entry.DefenderName = FText::FromString(Name);
+			// PlaceGold > 0 overrides Blueprint PlacementCost; 0 keeps the BP value.
+			Entry.DefenderPrice = PlaceGold;
+			Entry.DefenderClass = Class;
+			Entry.UpgradeCost = UpgradeGold;
+		};
+
+		AddEntry(TEXT("Royal Archer"), RoyalArcher, 10, 80);
+		AddEntry(TEXT("Frost Archer"), FrostArcher, 0, 100);
+		AddEntry(TEXT("Royal Guardian"), RoyalGuardian, 0, 120);
 	}
 
-	UClass* RoyalArcher = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Game/Defenders/BP_RoyalArcher.BP_RoyalArcher_C"));
-	UClass* FrostArcher = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Game/Defenders/BP_FrostArcher.BP_FrostArcher_C"));
-	UClass* RoyalGuardian = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Game/Defenders/BP_RoyalGuardian.BP_RoyalGuardian_C"));
-
-	Defenders.Reset();
-
-	auto AddEntry = [this](const TCHAR* Name, UClass* Class, int32 UpgradeGold)
+	// Always keep Royal Archer at 10 gold (overrides Blueprint PlacementCost / WBP defaults).
+	for (FDefenderBarEntry& Entry : Defenders)
 	{
-		if (!Class)
+		if (Entry.DefenderClass && Entry.DefenderClass->GetName().Contains(TEXT("RoyalArcher")))
 		{
-			return;
+			Entry.DefenderPrice = 10;
 		}
-		FDefenderBarEntry& Entry = Defenders.AddDefaulted_GetRef();
-		Entry.DefenderName = FText::FromString(Name);
-		Entry.DefenderPrice = 0; // Uses each Blueprint's PlacementCost
-		Entry.DefenderClass = Class;
-		Entry.UpgradeCost = UpgradeGold;
-	};
-
-	AddEntry(TEXT("Royal Archer"), RoyalArcher, 80);
-	AddEntry(TEXT("Frost Archer"), FrostArcher, 100);
-	AddEntry(TEXT("Royal Guardian"), RoyalGuardian, 120);
+	}
 }
 
 void UDefenderBarWidget::RebuildDefenderButtons()
@@ -93,12 +158,20 @@ void UDefenderBarWidget::RebuildDefenderButtons()
 		for (int32 Index = 0; Index < HandPlaced.Num(); ++Index)
 		{
 			UDefenderSelectWidget* Select = HandPlaced[Index];
-			if (Defenders.IsValidIndex(Index) && Select->UpgradeCost <= 0)
+			if (Defenders.IsValidIndex(Index))
 			{
-				Select->UpgradeCost = Defenders[Index].UpgradeCost;
+				if (Select->UpgradeCost <= 0)
+				{
+					Select->UpgradeCost = Defenders[Index].UpgradeCost;
+				}
+				if (Defenders[Index].DefenderPrice > 0)
+				{
+					Select->DefenderPrice = Defenders[Index].DefenderPrice;
+				}
 			}
 			Select->RefreshDisplay();
 		}
+		EnsureInfoButton();
 		return;
 	}
 
@@ -140,17 +213,125 @@ void UDefenderBarWidget::RebuildDefenderButtons()
 		}
 		GeneratedButtons.Add(Button);
 	}
+
+	EnsureInfoButton();
+}
+
+void UDefenderBarWidget::ApplyInfoButtonStyle()
+{
+	if (!InfoButton)
+	{
+		return;
+	}
+	UiArt::PreloadCommon();
+	UiArt::StyleImageButton(InfoButton, TEXT("infobttn"), InfoButtonMaxSize);
+
+	// Force parent Size Box to the layout max so a first-frame texture miss cannot stick tiny.
+	if (USizeBox* Box = Cast<USizeBox>(InfoButton->GetParent()))
+	{
+		const FVector2D Fitted = UiArt::GetFittedSize(TEXT("infobttn"), InfoButtonMaxSize);
+		const FVector2D Size = (Fitted.X >= 32.f && Fitted.Y >= 32.f) ? Fitted : InfoButtonMaxSize;
+		Box->SetWidthOverride(Size.X);
+		Box->SetHeightOverride(Size.Y);
+	}
+}
+
+void UDefenderBarWidget::ScheduleInfoButtonRestyle()
+{
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().SetTimerForNextTick(
+			FTimerDelegate::CreateUObject(this, &UDefenderBarWidget::ApplyInfoButtonStyle));
+	}
+}
+
+void UDefenderBarWidget::EnsureInfoButton()
+{
+	// Designer-placed InfoButton on WBP_DefenderBarBase
+	if (InfoButton)
+	{
+		ApplyInfoButtonStyle();
+		InfoButton->OnClicked.AddUniqueDynamic(this, &UDefenderBarWidget::HandleInfoClicked);
+		return;
+	}
+
+	if (!DefenderBox)
+	{
+		return;
+	}
+
+	InfoButton = NewObject<UButton>(this, TEXT("InfoButton"));
+	ApplyInfoButtonStyle();
+	if (!UiArt::Load(TEXT("infobttn")))
+	{
+		UTextBlock* Label = NewObject<UTextBlock>(this, TEXT("InfoButtonLabel"));
+		Label->SetText(FText::FromString(TEXT("Info")));
+		FSlateFontInfo Font = Label->GetFont();
+		Font.Size = 16;
+		Label->SetFont(Font);
+		Label->SetColorAndOpacity(FSlateColor(FLinearColor::White));
+		Label->SetJustification(ETextJustify::Center);
+		InfoButton->AddChild(Label);
+		FButtonStyle Style = InfoButton->GetStyle();
+		Style.Normal.TintColor = FSlateColor(FLinearColor(0.15f, 0.28f, 0.42f, 0.95f));
+		Style.Hovered.TintColor = FSlateColor(FLinearColor(0.25f, 0.45f, 0.65f, 1.f));
+		Style.Pressed.TintColor = FSlateColor(FLinearColor(0.1f, 0.18f, 0.28f, 1.f));
+		InfoButton->SetStyle(Style);
+	}
+	InfoButton->OnClicked.AddUniqueDynamic(this, &UDefenderBarWidget::HandleInfoClicked);
+
+	if (UHorizontalBoxSlot* BoxSlot = DefenderBox->AddChildToHorizontalBox(InfoButton))
+	{
+		BoxSlot->SetPadding(FMargin(DefenderSpacing * 1.5f, 0.f, DefenderSpacing * 0.5f, 0.f));
+		BoxSlot->SetVerticalAlignment(VAlign_Center);
+		BoxSlot->SetHorizontalAlignment(HAlign_Center);
+	}
+}
+
+void UDefenderBarWidget::HandleInfoClicked()
+{
+	UGameInfoWidget::OpenInfoPanel(this);
+}
+
+void UDefenderBarWidget::ApplyPanelArt()
+{
+	UiArt::PreloadCommon();
+
+	UBorder* Target = PanelBorder ? PanelBorder.Get() : BackgroundBorder.Get();
+	if (!Target && PanelOverlay)
+	{
+		Target = DefenderBarPrivate::FindFirstBorder(PanelOverlay);
+	}
+	if (!Target)
+	{
+		Target = DefenderBarPrivate::FindFirstBorder(GetRootWidget());
+	}
+	if (Target)
+	{
+		DefenderBarPrivate::StyleBlankPanel2(Target, PanelMaxSize);
+	}
+}
+
+void UDefenderBarWidget::SchedulePanelRestyle()
+{
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().SetTimerForNextTick(
+			FTimerDelegate::CreateUObject(this, &UDefenderBarWidget::ApplyPanelArt));
+	}
 }
 
 void UDefenderBarWidget::NativePreConstruct()
 {
 	Super::NativePreConstruct();
 	RebuildDefenderButtons();
+	ApplyPanelArt();
 }
 
 void UDefenderBarWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
+	UiArt::PreloadCommon();
 	if (HeadingText && !bHeadingCaptured)
 	{
 		DefaultHeading = HeadingText->GetText();
@@ -158,6 +339,9 @@ void UDefenderBarWidget::NativeConstruct()
 		bHeadingCaptured = true;
 	}
 	RebuildDefenderButtons();
+	ApplyPanelArt();
+	SchedulePanelRestyle();
+	ScheduleInfoButtonRestyle();
 	BindToManager();
 }
 

@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "GameFramework/Actor.h"
@@ -125,12 +126,27 @@ namespace UnitReflection
 	{
 		OutLocalCenter = FVector(0.f, 0.f, 50.f);
 		OutExtent = FVector(50.f);
+		FBox Box(ForceInit);
 		TArray<UStaticMeshComponent*> Meshes;
 		GetBodyMeshes(Actor, Meshes);
-		FBox Box(ForceInit);
 		for (const UStaticMeshComponent* Mesh : Meshes)
 		{
-			Box += Mesh->Bounds.GetBox();
+			if (Mesh && Mesh->IsVisible())
+			{
+				Box += Mesh->Bounds.GetBox();
+			}
+		}
+		if (Actor)
+		{
+			TArray<USkeletalMeshComponent*> Skels;
+			Actor->GetComponents(Skels);
+			for (const USkeletalMeshComponent* Skel : Skels)
+			{
+				if (Skel && Skel->IsVisible())
+				{
+					Box += Skel->Bounds.GetBox();
+				}
+			}
 		}
 		if (Actor && Box.IsValid)
 		{

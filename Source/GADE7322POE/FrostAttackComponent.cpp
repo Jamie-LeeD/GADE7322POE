@@ -4,6 +4,7 @@
 #include "EnemyStatusComponent.h"
 #include "GameFramework/Actor.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "TowerFabMeshComponent.h"
 #include "UnitReflectionUtils.h"
 
 UFrostAttackComponent::UFrostAttackComponent()
@@ -23,6 +24,13 @@ void UFrostAttackComponent::BeginPlay()
 
 	UnitReflection::ApplyMaxHealthOverride(Owner, MaxHealthOverride);
 
+	UTowerFabMeshComponent* TowerMesh = UTowerFabMeshComponent::EnsureOn(Owner);
+	// Keep Blender ice-tower materials; only tint placeholder cylinders.
+	if (TowerMesh && TowerMesh->HasTowerMesh())
+	{
+		return;
+	}
+
 	if (UMaterialInterface* BaseMaterial = UnitReflection::GetTintBaseMaterial())
 	{
 		BodyMaterial = UMaterialInstanceDynamic::Create(BaseMaterial, this);
@@ -32,6 +40,10 @@ void UFrostAttackComponent::BeginPlay()
 		UnitReflection::GetBodyMeshes(Owner, Meshes);
 		for (UStaticMeshComponent* Mesh : Meshes)
 		{
+			if (!IsValid(Mesh) || !Mesh->IsVisible())
+			{
+				continue;
+			}
 			for (int32 Slot = 0; Slot < Mesh->GetNumMaterials(); ++Slot)
 			{
 				Mesh->SetMaterial(Slot, BodyMaterial);
